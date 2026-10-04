@@ -37,6 +37,7 @@ const VIDEO_PAGE = '<!doctype html><html><head><meta name="viewport" content="wi
 const LISTING_PAGE = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>
   <a id="thumb1" href="/view_video.php?viewkey=listing1" style="display:inline-block;margin:40px"><img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="320" height="180" alt=""></a>
   <a id="small" href="/view_video.php?viewkey=tiny" style="display:inline-block"><img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="40" height="40" alt=""></a>
+  <div id="xv" style="position:relative;display:inline-block;margin:40px"><a href="/view_video.php?viewkey=overlay1"><img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="320" height="180" alt=""></a><a id="xv-overlay" href="/view_video.php?viewkey=overlay1" style="position:absolute;left:0;right:0;bottom:0;height:90px;display:block"></a></div>
   <a id="model" href="/model/someone"><img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="320" height="180" alt=""></a>
 </body></html>`;
 
@@ -184,6 +185,14 @@ async function main() {
       const thumb = page.locator("#nsfwdl-thumb-button");
       check("a thumbnail gets the download button on hover", await thumb.isVisible());
       check("nothing is requested on hover", bodies.length === 0, bodies);
+      await page.hover("#xv img", {position: {x: 160, y: 30}});
+      await page.waitForTimeout(100);
+      await page.mouse.move(page.viewportSize().width, 0);
+      const xvBox = await page.locator("#xv").boundingBox();
+      await page.mouse.move(xvBox.x + 160, xvBox.y + 30);
+      await page.mouse.move(xvBox.x + 160, xvBox.y + 150, {steps: 4});
+      await page.waitForTimeout(400);
+      check("a second link laid over the thumbnail keeps the button (XVideos/XNXX)", await thumb.isVisible());
       await page.hover("#model img");
       await page.waitForTimeout(400);
       check("a non-video link gets no button", !(await thumb.isVisible()));

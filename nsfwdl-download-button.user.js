@@ -17,7 +17,7 @@
 // @name:ko      NSFWDL Video Downloader – PornHub, xHamster, XVideos, XNXX를 클릭 한 번에 MP4로, 팝업 없음
 // @name:zh-CN   NSFWDL 视频下载器 – 一键将 PornHub、xHamster、XVideos、XNXX 保存为 MP4，无弹窗
 // @namespace    https://nsfwdl.com/
-// @version      2.0.0
+// @version      2.0.1
 // @description  Download videos without leaving the page: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang and 13 more sites. Pick a real quality with its file size, watch live progress, and the MP4 goes straight to your downloads. Download buttons on thumbnails, a preferred quality for one-click saving, no pop-ups.
 // @description:ro  Descarcă video fără să părăsești pagina: PornHub (inclusiv Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang și încă 13 site-uri. Alegi o calitate reală cu mărimea fișierului, vezi progresul live, iar MP4-ul ajunge direct în descărcări. Butoane pe miniaturi, calitate preferată pentru un singur click, fără pop-up-uri.
 // @description:es  Descarga vídeos sin salir de la página: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang y 13 sitios más. Elige una calidad real con su tamaño, mira el progreso en vivo y el MP4 llega directo a tus descargas. Botones en las miniaturas, calidad preferida en un clic, sin pop-ups.
@@ -855,13 +855,24 @@
     thumbTarget = null;
   }
 
+  // The single-video URL of the link under the pointer, thumbnail or not.
+  function linkUrlFor(node) {
+    const anchor = node && node.closest ? node.closest("a[href]") : null;
+    if (!anchor || host.contains(anchor)) return null;
+    return videoLinkTarget(site, anchor.getAttribute("href"), location.href);
+  }
+
   function thumbnailFor(node) {
     const anchor = node && node.closest ? node.closest("a[href]") : null;
     if (!anchor || host.contains(anchor)) return null;
-    const media = anchor.querySelector("img, video, picture");
-    if (!media) return null;
-    const rect = media.getBoundingClientRect();
-    if (rect.width < 120 || rect.height < 68) return null;
+    // The biggest image in the link: sites put small icons, badges or a
+    // hidden lazy-loading copy next to the real thumbnail.
+    let rect = null;
+    for (const media of anchor.querySelectorAll("img, video, picture")) {
+      const box = media.getBoundingClientRect();
+      if (!rect || box.width * box.height > rect.width * rect.height) rect = box;
+    }
+    if (!rect || rect.width < 120 || rect.height < 68) return null;
     const url = videoLinkTarget(site, anchor.getAttribute("href"), location.href);
     if (!url || url === state.pageUrl) return null;
     return {url, rect};
@@ -873,7 +884,12 @@
       if (!settings.thumbs) return;
       if (event.target === thumbHost) { clearTimeout(thumbHideTimer); return; }
       const found = thumbnailFor(event.target);
-      if (!found) return;
+      if (!found) {
+        // XVideos and XNXX lay a second link to the same video over the
+        // thumbnail; moving onto it must not hide the button.
+        if (thumbTarget && linkUrlFor(event.target) === thumbTarget) clearTimeout(thumbHideTimer);
+        return;
+      }
       clearTimeout(thumbHideTimer);
       thumbTarget = found.url;
       thumbHost.style.setProperty("top", Math.max(4, found.rect.top + 8) + "px", "important");
@@ -884,7 +900,7 @@
     document.addEventListener("mouseout", (event) => {
       if (!thumbTarget) return;
       const to = event.relatedTarget;
-      if (to === thumbHost || (to && thumbnailFor(to) && thumbnailFor(to).url === thumbTarget)) return;
+      if (to === thumbHost || (to && linkUrlFor(to) === thumbTarget)) return;
       clearTimeout(thumbHideTimer);
       thumbHideTimer = setTimeout(hideThumb, 250);
     }, true);
