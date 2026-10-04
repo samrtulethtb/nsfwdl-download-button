@@ -1,12 +1,3 @@
-# Sleazy Fork listing – "Additional info" (Markdown)
-
-The name, short description, the 16 translations and the
-`@antifeature payment` disclosure come from the script header itself.
-Everything below the line is published as ADDITIONAL_INFO.md, which Sleazy
-Fork syncs into **Additional info** (Admin → Source Syncing).
-
----
-
 ## ⬇️ Download adult videos right on the page
 
 Press **Download** on a video, pick a quality, and the MP4 goes straight to
