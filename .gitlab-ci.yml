@@ -1,0 +1,13 @@
+# GitLab Pages: serves docs/ (the same page GitHub Pages serves) at
+# https://smartulet-group.gitlab.io/nsfwdl-download-button/
+pages:
+  stage: deploy
+  image: alpine:latest
+  script:
+    - mkdir -p public
+    - cp -r docs/. public/
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
