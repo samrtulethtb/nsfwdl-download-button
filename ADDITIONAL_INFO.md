@@ -7,6 +7,15 @@ your browser's downloads. No new tab, no copying links, no pop-ups.
 Eporner · SpankBang · Erome · YouPorn · RedTube · ThisVid · TXXX network ·
 and more (20 sites)
 
+### 📱 Phones too, not just desktop
+
+- **Android:** Firefox with Tampermonkey or Violentmonkey, or Microsoft Edge
+  with Tampermonkey. Downloads from Android phones finish just like on desktop.
+- **iPhone / iPad:** Safari with the free **Userscripts** app (or Stay). New:
+  tell us in the Feedback tab how it goes.
+- **Desktop:** Chrome, Edge, Firefox, Opera or Brave with Tampermonkey or
+  Violentmonkey.
+
 ### Why this one
 
 - 🎯 **Real qualities with real sizes.** Every choice (e.g. 720p · ~110 MB,

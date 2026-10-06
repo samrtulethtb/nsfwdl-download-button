@@ -9,7 +9,8 @@ file goes straight to your browser's downloads. Powered by
 
 1. Install [Tampermonkey](https://www.tampermonkey.net/) or
    [Violentmonkey](https://violentmonkey.github.io/). On Android, use them
-   in Firefox or Kiwi.
+   in Firefox (or Tampermonkey in Microsoft Edge). On iPhone and iPad, use
+   Safari with the free Userscripts app or Stay.
 2. Install the script from [Sleazy Fork](https://sleazyfork.org/en/scripts/597630)
    or a mirror:
    - [GitHub raw](https://raw.githubusercontent.com/samrtulethtb/nsfwdl-download-button/main/nsfwdl-download-button.user.js)
