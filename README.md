@@ -49,11 +49,33 @@ file goes straight to your browser's downloads. Powered by
 
 ## Supported sites
 
-PornHub (videos and Shorties), xHamster (and its mirror domains), XVideos,
-XNXX, RedGifs, Eporner, SpankBang, Erome, YouJizz, PornTop, RedTube,
-YouPorn, TNAFlix, Porntrex, NoodleMagazine, the TXXX network (TXXX, Upornia,
-VJAV, HClips, HDZog, HotMovs, InPorn, VoyeurHit, VXXX and more), Nuvid,
-Rule34Video, NSFW.xxx and ThisVid.
+Each link opens that site's downloader on nsfwdl.com, which works without
+the script too.
+
+- [PornHub](https://nsfwdl.com/pornhub-downloader) (videos and Shorties)
+- [xHamster](https://nsfwdl.com/xhamster-downloader) (and its mirror domains)
+- [XVideos](https://nsfwdl.com/xvideos-downloader)
+- [XNXX](https://nsfwdl.com/xnxx-downloader)
+- [RedGifs](https://nsfwdl.com/redgifs-downloader)
+- [Eporner](https://nsfwdl.com/eporner-downloader)
+- [SpankBang](https://nsfwdl.com/spankbang-downloader)
+- [Erome](https://nsfwdl.com/erome-downloader)
+- [YouJizz](https://nsfwdl.com/youjizz-downloader)
+- [PornTop](https://nsfwdl.com/porntop-downloader)
+- [RedTube](https://nsfwdl.com/redtube-downloader)
+- [YouPorn](https://nsfwdl.com/youporn-downloader)
+- [TNAFlix](https://nsfwdl.com/tnaflix-downloader)
+- [Porntrex](https://nsfwdl.com/porntrex-downloader)
+- [NoodleMagazine](https://nsfwdl.com/noodlemagazine-downloader)
+- [The TXXX network](https://nsfwdl.com/txxx-downloader) (TXXX, Upornia, VJAV, HClips, HDZog, HotMovs, InPorn,
+  VoyeurHit, VXXX and more)
+- [Nuvid](https://nsfwdl.com/nuvid-downloader)
+- [Rule34Video](https://nsfwdl.com/rule34video-downloader)
+- [NSFW.xxx](https://nsfwdl.com/nsfwxxx-downloader)
+- [ThisVid](https://nsfwdl.com/thisvid-downloader)
+
+Any other link: the [universal downloader](https://nsfwdl.com/universal-nsfw-downloader). Full
+list: [supported sites](https://nsfwdl.com/supported-sites).
 
 ## Free and Supporter
 

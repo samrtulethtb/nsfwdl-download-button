@@ -12,9 +12,10 @@ Fork syncs into **Additional info** (Admin → Source Syncing).
 Press **Download** on a video, pick a quality, and the MP4 goes straight to
 your browser's downloads. No new tab, no copying links, no pop-ups.
 
-**Works on:** PornHub (incl. Shorties) · xHamster (and its mirrors) · XVideos · XNXX · RedGifs ·
-Eporner · SpankBang · Erome · YouPorn · RedTube · ThisVid · TXXX network ·
-and more (20 sites)
+**Works on:** [PornHub](https://nsfwdl.com/pornhub-downloader) (incl. Shorties) · [xHamster](https://nsfwdl.com/xhamster-downloader) (and its mirrors) ·
+[XVideos](https://nsfwdl.com/xvideos-downloader) · [XNXX](https://nsfwdl.com/xnxx-downloader) · [RedGifs](https://nsfwdl.com/redgifs-downloader) · [Eporner](https://nsfwdl.com/eporner-downloader) ·
+[SpankBang](https://nsfwdl.com/spankbang-downloader) · [Erome](https://nsfwdl.com/erome-downloader) · [YouPorn](https://nsfwdl.com/youporn-downloader) · [RedTube](https://nsfwdl.com/redtube-downloader) ·
+[ThisVid](https://nsfwdl.com/thisvid-downloader) · [TXXX network](https://nsfwdl.com/txxx-downloader) · and [more](https://nsfwdl.com/supported-sites) (20 sites)
 
 ### 📱 Phones too, not just desktop
 
