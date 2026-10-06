@@ -17,7 +17,7 @@
 // @name:ko      NSFWDL Video Downloader – PornHub, xHamster, XVideos, XNXX를 클릭 한 번에 MP4로, 팝업 없음
 // @name:zh-CN   NSFWDL 视频下载器 – 一键将 PornHub、xHamster、XVideos、XNXX 保存为 MP4，无弹窗
 // @namespace    https://nsfwdl.com/
-// @version      2.0.1
+// @version      2.1.0
 // @description  Download videos without leaving the page: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang and 13 more sites. Pick a real quality with its file size, watch live progress, and the MP4 goes straight to your downloads. Download buttons on thumbnails, a preferred quality for one-click saving, no pop-ups.
 // @description:ro  Descarcă video fără să părăsești pagina: PornHub (inclusiv Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang și încă 13 site-uri. Alegi o calitate reală cu mărimea fișierului, vezi progresul live, iar MP4-ul ajunge direct în descărcări. Butoane pe miniaturi, calitate preferată pentru un singur click, fără pop-up-uri.
 // @description:es  Descarga vídeos sin salir de la página: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang y 13 sitios más. Elige una calidad real con su tamaño, mira el progreso en vivo y el MP4 llega directo a tus descargas. Botones en las miniaturas, calidad preferida en un clic, sin pop-ups.
@@ -83,11 +83,14 @@
 // @match        *://*.pornhub.com/*
 // @match        *://*.pornhub.org/*
 // @include      /^https?:\/\/(?:[a-z0-9-]+\.)*xhamster[0-9]{1,3}\.(?:com|desi)\//
+// @include      /^https?:\/\/(?:[a-z0-9-]+\.)*[a-z0-9-]*xh[a-z0-9-]*\.[a-z]{2,24}\/videos\/[^\/?#]+-(?:xh[0-9A-Za-z]{4,12}|[0-9]{6,9})\/?(?:[?#].*)?$/
 // @grant        GM_xmlhttpRequest
 // @grant        GM.xmlHttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
+// @grant        GM_notification
+// @grant        GM.notification
 // @connect      nsfwdl.com
 // @connect      dl.nsfwdl.com
 // @antifeature  payment Downloads are free. Files over 500 MB need a paid NSFWDL Supporter key; those choices are shown with a lock and never started for a free session.
@@ -106,8 +109,10 @@
 //   downloads made from this script. Like any visit, they reach NSFWDL from
 //   your IP address, and your userscript manager may send your nsfwdl.com
 //   cookies (that is how an active Supporter session is recognised).
-// - The script stores only its settings and whether you minimized the
-//   button (GM_setValue). No analytics, ads or tracking code.
+// - The script stores only its settings, whether you minimized the button
+//   and, unless you turn it off, a list of the videos you saved with it, to
+//   mark them as downloaded (GM_setValue, never sent anywhere). No
+//   analytics, ads or tracking code.
 // - Without GM_xmlhttpRequest (some managers), the button falls back to
 //   opening the video in NSFWDL in a new tab, as version 1 did.
 (function () {
@@ -127,7 +132,16 @@
     ask: "Ask every time", best: "Best available", 1080: "1080p or lower", 720: "720p or lower",
     480: "480p or lower", smallest: "Smallest file",
   });
-  const DEFAULT_SETTINGS = Object.freeze({quality: "ask", position: "right", thumbs: true});
+  const DEFAULT_SETTINGS = Object.freeze({quality: "ask", position: "right", thumbs: true, marks: true});
+  // At most this many downloads run at once from the script; the rest wait
+  // their turn in the panel. NSFWDL lets one connection read 6 files at a
+  // time, and the site itself may need a slot too.
+  const MAX_PARALLEL = 4;
+  const HISTORY_LIMIT = 3000;
+  // xHamster's rotating mirror domains (xhspot.com, xhaccess.com, ...): a
+  // video page there ends in xHamster's own video ID, "xh..." or the 6-9
+  // digit one of older videos. NSFWDL fetches the same video on xhamster.com.
+  const XH_MIRROR_VIDEO = /^\/videos\/[^/?#]+-(?:xh[0-9A-Za-z]{4,12}|[0-9]{6,9})\/?$/;
 
   const SITES = [
     {id: "xnxx", name: "XNXX", route: "/xnxx-downloader", hosts: ['xnxx.com'], hostPatterns: [], video: /^\/video-/},
@@ -164,6 +178,35 @@
     return Boolean(site) && site.video.test(url.pathname + url.search);
   }
 
+  // xHamster for a video page on one of its mirror domains; null otherwise.
+  function mirrorSite(url) {
+    const labels = String(url.hostname || "").toLowerCase().split(".");
+    if (labels.length < 2 || !labels[labels.length - 2].includes("xh") || !XH_MIRROR_VIDEO.test(url.pathname)) return null;
+    return SITES.find((s) => s.id === "xhamster");
+  }
+
+  function siteForUrl(url) {
+    return siteFor(url.hostname) || mirrorSite(url);
+  }
+
+  // A stable key for "this video" across a site's domains and mirrors, for
+  // the downloaded marks: PornHub's viewkey, xHamster's video ID, otherwise
+  // the site and the page path.
+  function videoKey(site, href) {
+    let url;
+    try { url = new URL(href); } catch (_) { return ""; }
+    if (!site) return "";
+    if (site.id === "pornhub") {
+      const key = url.searchParams.get("viewkey");
+      if (key) return "pornhub:" + key;
+    }
+    if (site.id === "xhamster") {
+      const id = (url.pathname.match(/-(xh[0-9A-Za-z]{4,12}|[0-9]{5,9})\/?$/) || [])[1];
+      if (id) return "xhamster:" + id;
+    }
+    return site.id + ":" + url.pathname.replace(/\/+$/, "").toLowerCase();
+  }
+
   // Version 1's behaviour, kept as the fallback: the NSFWDL page for this
   // site with the video link in the #url= fragment (never sent to a server).
   function targetUrl(site, pageUrl) {
@@ -176,7 +219,7 @@
     let url;
     try { url = new URL(href, baseHref); } catch (_) { return null; }
     if (url.protocol !== "https:" && url.protocol !== "http:") return null;
-    if (siteFor(url.hostname) !== site || !isVideoPage(site, url)) return null;
+    if (siteForUrl(url) !== site || !isVideoPage(site, url)) return null;
     url.hash = "";
     return url.href;
   }
@@ -263,6 +306,7 @@
   // What a job's row says, from the server's measured state only.
   function jobView(job) {
     switch (job.phase) {
+      case "waiting": return {mode: "waiting", text: job.ahead > 0 ? "Waiting its turn · " + job.ahead + " ahead" : "Waiting its turn…"};
       case "starting": return {mode: "waiting", text: "Starting…"};
       case "queued": return {mode: "waiting", text: "Waiting for a free slot on NSFWDL…"};
       case "preparing": {
@@ -284,11 +328,11 @@
   }
 
   if (typeof module === "object" && module.exports) {
-    module.exports = {SITES, siteFor, isVideoPage, targetUrl, videoLinkTarget, normalizeFormats, pickPreferred, safeDownloadUrl, qualityBadge, jobView, formatDuration};
+    module.exports = {SITES, siteFor, siteForUrl, mirrorSite, videoKey, isVideoPage, targetUrl, videoLinkTarget, normalizeFormats, pickPreferred, safeDownloadUrl, qualityBadge, jobView, formatDuration, MAX_PARALLEL};
     return;
   }
 
-  const site = siteFor(location.hostname);
+  const site = siteForUrl(new URL(location.href));
   if (!site) return;
 
   // ── Transport (GM_xmlhttpRequest to nsfwdl.com only) ───────────────────
@@ -346,11 +390,85 @@
     if (!QUALITY_CHOICES.includes(String(value.quality))) value.quality = DEFAULT_SETTINGS.quality;
     if (value.position !== "left") value.position = "right";
     value.thumbs = value.thumbs !== false;
+    value.marks = value.marks !== false;
     return value;
   }
 
   const settings = readSettings();
   const inPage = Boolean(gmRequestFunction());
+
+  // ── Downloaded marks (local list, never sent anywhere) ─────────────────
+  // {videoKey: day number}; the oldest entries go past HISTORY_LIMIT.
+  function readHistory() {
+    const stored = readValue("history", null);
+    return stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
+  }
+  let history = readHistory();
+
+  function wasDownloaded(url) {
+    if (!settings.marks) return false;
+    const key = videoKey(siteForUrl(new URL(url)) || site, url);
+    return Boolean(key) && Object.prototype.hasOwnProperty.call(history, key);
+  }
+
+  function rememberDownload(url) {
+    if (!settings.marks || !url) return;
+    let key;
+    try { key = videoKey(siteForUrl(new URL(url)) || site, url); } catch (_) { return; }
+    if (!key) return;
+    history = readHistory();   // another tab may have added some
+    delete history[key];
+    history[key] = Math.floor(Date.now() / 86400000);
+    const keys = Object.keys(history);
+    if (keys.length > HISTORY_LIMIT) for (const old of keys.slice(0, keys.length - HISTORY_LIMIT)) delete history[old];
+    writeValue("history", history);
+    marksSeen = new WeakMap();
+    scheduleMarks();
+  }
+
+  function clearHistory() {
+    history = {};
+    marksSeen = new WeakMap();
+    writeValue("history", {});
+    for (const img of document.querySelectorAll("[data-nsfwdl-saved]")) img.removeAttribute("data-nsfwdl-saved");
+  }
+
+  // ── Telling the visitor when they're elsewhere ─────────────────────────
+  function notifyFunction() {
+    try { if (typeof GM_notification === "function") return GM_notification; } catch (_) { /* not granted */ }
+    try { if (typeof GM === "object" && GM && typeof GM.notification === "function") return GM.notification.bind(GM); } catch (_) { /* not granted */ }
+    return null;
+  }
+
+  // Only when this tab is in the background: in front, the panel says it.
+  function notify(text) {
+    const send = notifyFunction();
+    if (!send || !document.hidden) return;
+    try { send({title: "NSFWDL", text, silent: false, timeout: 15000, onclick: () => { try { window.focus(); } catch (_) { /* ignore */ } }}); } catch (_) { /* optional */ }
+  }
+
+  // Progress in the tab title while downloads run ("⬇ 45% · page title").
+  const TITLE_MARK = /^(?:⬇ [^·]{1,20}(?:·\s*|$))+/;
+  let titleOwned = false;
+  function updateTitle() {
+    const running = state.jobs.filter((job) => !FINISHED.includes(job.phase));
+    let label = "";
+    if (running.length === 1) {
+      const view = jobView(running[0]);
+      label = view.mode === "measured" ? "⬇ " + Math.floor(view.fraction * 100) + "%" : "⬇ …";
+    } else if (running.length > 1) {
+      label = "⬇ " + running.length + " running";
+    }
+    const base = document.title.replace(TITLE_MARK, "");
+    if (label) {
+      const next = base ? label + " · " + base : label;
+      if (document.title !== next) document.title = next;
+      titleOwned = true;
+    } else if (titleOwned) {
+      if (document.title !== base) document.title = base;
+      titleOwned = false;
+    }
+  }
 
   // ── UI ─────────────────────────────────────────────────────────────────
   const STYLE = `
@@ -489,8 +607,12 @@
     primaryButton: null,
   };
 
+  const FINISHED = ["saved", "handed", "failed"];
+  // Phases that hold a slot (see MAX_PARALLEL); "waiting" ones don't yet.
+  const RUNNING = ["starting", "queued", "preparing", "saving", "receiving"];
+
   function activeJobs() {
-    return state.jobs.filter((job) => !["saved", "handed", "failed"].includes(job.phase));
+    return state.jobs.filter((job) => !FINISHED.includes(job.phase));
   }
 
   function dockLabel() {
@@ -515,7 +637,8 @@
       return;
     }
     dock.removeAttribute("style");
-    const brand = el("div", {class: "brand"}, [el("strong", {text: "NSFWDL"}), el("small", {text: site.name})]);
+    const before = state.pageUrl && wasDownloaded(state.pageUrl);
+    const brand = el("div", {class: "brand"}, [el("strong", {text: "NSFWDL"}), el("small", {text: before ? "✓ Downloaded" : site.name, title: before ? "You saved this video before with NSFWDL" : null})]);
     if (inPage) {
       state.primaryButton = el("button", {
         class: "btn btn-primary", type: "button", "aria-expanded": String(state.open), "aria-haspopup": "dialog",
@@ -685,12 +808,19 @@
     const position = el("select", {"aria-label": "Button position", onchange: (event) => { settings.position = event.target.value === "left" ? "left" : "right"; saveSettings(); applyPosition(); }},
       [["right", "Bottom right"], ["left", "Bottom left"]].map(([value, text]) => el("option", {value, text, selected: settings.position === value})));
     const thumbs = el("input", {type: "checkbox", checked: settings.thumbs, onchange: (event) => { settings.thumbs = event.target.checked; saveSettings(); }});
+    const marks = el("input", {type: "checkbox", checked: settings.marks, onchange: (event) => { settings.marks = event.target.checked; saveSettings(); marksSeen = new WeakMap(); scheduleMarks(); renderDock(); }});
+    const remembered = Object.keys(history).length;
     return [
       header("Settings", "Stored only in your userscript manager"),
       el("div", {class: "body"}, [
         el("label", {class: "setting"}, ["Preferred quality", quality, el("small", {text: "With a preferred quality, one click on Download starts it straight away."})]),
         el("label", {class: "setting"}, ["Button position", position]),
         el("label", {class: "setting check"}, [thumbs, "Download buttons on thumbnails (desktop)"]),
+        el("label", {class: "setting check"}, [marks, "Mark videos I already downloaded"]),
+        el("p", {class: "note"}, [
+          remembered ? remembered + " video" + (remembered === 1 ? "" : "s") + " remembered, only in your userscript manager. " : "The list stays only in your userscript manager. ",
+          remembered ? el("button", {class: "linkbtn", type: "button", text: "Clear the list", onclick: () => { clearHistory(); renderDock(); render(); }}) : null,
+        ]),
         el("p", {class: "note", text: "Shortcut: Alt+Shift+D opens the downloader on a video page."}),
       ]),
       footer(),
@@ -698,7 +828,7 @@
   }
 
   function saveSettings() {
-    writeValue("settings", {quality: settings.quality, position: settings.position, thumbs: settings.thumbs});
+    writeValue("settings", {quality: settings.quality, position: settings.position, thumbs: settings.thumbs, marks: settings.marks});
   }
 
   function applyPosition() {
@@ -710,6 +840,7 @@
 
   function render() {
     refreshDockLabel();
+    updateTitle();
     if (!state.open) { panel.hidden = true; return; }
     const keepScroll = panel.querySelector(".body") ? panel.querySelector(".body").scrollTop : 0;
     if (state.view === "settings") {
@@ -730,34 +861,93 @@
   }
 
   function updateJob(job, changes) {
+    const before = job.phase;
     Object.assign(job, changes);
     if (changes.phase === "saved" && !job.counted) {
       job.counted = true;
       writeValue("savedCount", (Number(readValue("savedCount", 0)) || 0) + 1);
     }
+    if (changes.phase && changes.phase !== before) {
+      if (changes.phase === "saved" || changes.phase === "handed") {
+        rememberDownload(job.target && job.target.url);
+        renderDock();
+        notify((changes.phase === "saved" ? "Saved: " : "Handed to your browser: ") + job.title);
+      } else if (changes.phase === "stalled") {
+        notify("Your file is ready. Come back to the tab to save it: " + job.title);
+      } else if (changes.phase === "failed") {
+        notify("Download failed: " + job.title);
+      }
+      // A slot may have freed up.
+      if (!RUNNING.includes(changes.phase)) pump();
+    }
     render();
+  }
+
+  // Starts waiting jobs, oldest first, while fewer than MAX_PARALLEL run.
+  let pumpTimer = 0;
+  function pump() {
+    clearTimeout(pumpTimer);
+    let running = state.jobs.filter((job) => RUNNING.includes(job.phase)).length;
+    let nextWake = 0;
+    for (const job of state.jobs) {
+      if (job.phase !== "waiting") continue;
+      if (job.notBefore && job.notBefore > Date.now()) {
+        nextWake = nextWake ? Math.min(nextWake, job.notBefore) : job.notBefore;
+        continue;
+      }
+      if (running >= MAX_PARALLEL) break;
+      running += 1;
+      runJob(job);
+    }
+    let ahead = 0;
+    for (const job of state.jobs) if (job.phase === "waiting") job.ahead = ahead++;
+    if (nextWake) pumpTimer = setTimeout(pump, Math.max(500, nextWake - Date.now()));
   }
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  async function startJob(choice, forTarget) {
+  function startJob(choice, forTarget) {
     const target = forTarget || state.target;
+    const url = target && target.url;
+    // A repeated click on the same quality of the same video.
+    if (state.jobs.some((job) => job.choice.ref === choice.ref && job.target && job.target.url === url && !FINISHED.includes(job.phase))) {
+      if (!state.open) { state.open = true; renderDock(); }
+      render();
+      return;
+    }
     const title = (target && target.info && target.info.title) || site.name + " video";
     const job = {
       choice, target, title, label: choice.label, sizeBytes: choice.sizeBytes, sizeExact: choice.sizeExact,
-      phase: "starting", bytesPrepared: 0, fileUrl: null, error: "", retry: false, supporter: false,
+      phase: "waiting", ahead: 0, attempts: 0, notBefore: 0, bytesPrepared: 0, fileUrl: null, error: "", retry: false, supporter: false,
     };
     state.jobs.push(job);
-    if (state.jobs.length > 8) state.jobs = state.jobs.filter((item, index) => index >= state.jobs.length - 8 || activeJobs().includes(item));
+    if (state.jobs.length > 12) state.jobs = state.jobs.filter((item, index) => index >= state.jobs.length - 12 || activeJobs().includes(item));
     if (!state.open) { state.open = true; renderDock(); }
+    pump();
+    render();
+  }
+
+  // NSFWDL refused the file because this connection already reads 6: put
+  // the job back in line and start it again a little later.
+  function requeue(job, seconds) {
+    if (job.attempts >= 6) return false;
+    job.attempts += 1;
+    updateJob(job, {phase: "waiting", notBefore: Date.now() + Math.max(5, seconds || 15) * 1000, id: null, fileUrl: null, bytesPrepared: 0});
+    return true;
+  }
+
+  async function runJob(job) {
+    job.phase = "starting";   // holds its slot from this moment
+    job.notBefore = 0;
     render();
     try {
-      const started = await api("POST", "/api/download", {format_ref: choice.ref, page_path: PAGE_PATH}, 30000);
+      const started = await api("POST", "/api/download", {format_ref: job.choice.ref, page_path: PAGE_PATH}, 30000);
       const fileUrl = safeDownloadUrl(started.download_url);
       const id = /^[A-Za-z0-9_-]{20,128}$/.test(String(started.download_id || "")) ? started.download_id : null;
       if (!fileUrl || !id) throw Object.assign(new Error("NSFWDL returned an unexpected answer. Try again."), {transient: true});
       if (state.jobs.some((other) => other !== job && other.id === id && activeJobs().includes(other))) {
         removeJob(job);   // the same download is already running (a repeated click)
+        pump();
         render();
         return;
       }
@@ -767,6 +957,7 @@
       saveFile(fileUrl);
       await followHandoff(job);
     } catch (error) {
+      if (error && error.kind === "rate_limited_active_downloads" && requeue(job, error.retryAfter)) return;
       updateJob(job, {
         phase: "failed",
         error: (error && error.message) || "This download failed.",
@@ -832,7 +1023,11 @@
       else if (status.handoff === "stalled" || (status.handoff === "waiting" && Date.now() - startedAt > 10000)) {
         if (job.phase !== "stalled") updateJob(job, {phase: "stalled"});
       }
-      if (status.state === "failed") { updateJob(job, {phase: "failed", error: failureMessage(status.error_kind), retry: true}); return; }
+      if (status.state === "failed") {
+        if (status.error_kind === "rate_limited_active_downloads" && requeue(job, 15)) return;
+        updateJob(job, {phase: "failed", error: failureMessage(status.error_kind), retry: true});
+        return;
+      }
     }
     updateJob(job, {phase: "handed"});
   }
@@ -892,6 +1087,7 @@
       }
       clearTimeout(thumbHideTimer);
       thumbTarget = found.url;
+      thumbButton.textContent = wasDownloaded(found.url) ? "✓ Again · NSFWDL" : "⬇ NSFWDL";
       thumbHost.style.setProperty("top", Math.max(4, found.rect.top + 8) + "px", "important");
       thumbHost.style.setProperty("left", Math.max(4, found.rect.left + 8) + "px", "important");
       thumbHost.style.setProperty("display", "block", "important");
@@ -914,6 +1110,64 @@
       ensureWidget();
       openPanelFor(url, {oneClick: true});
     });
+  }
+
+  // ── Downloaded marks on thumbnails ─────────────────────────────────────
+  // A green outline on the thumbnail of a video saved before: an attribute
+  // and one style rule, so the site's layout is never changed.
+  const MARK_STYLE_ID = "nsfwdl-marks-style";
+  let marksTimer = 0;
+  let marksObserver = null;
+  let marksLastRun = 0;
+  // Links already looked at (and their href then), so a busy page that
+  // keeps changing its DOM costs only the new links.
+  let marksSeen = new WeakMap();
+
+  function scheduleMarks() {
+    if (marksTimer) return;
+    marksTimer = setTimeout(() => { marksTimer = 0; marksLastRun = Date.now(); applyMarks(); }, Math.max(400, 1500 - (Date.now() - marksLastRun)));
+  }
+
+  function biggestMedia(anchor) {
+    let best = null;
+    let area = 0;
+    for (const media of anchor.querySelectorAll("img, video, picture")) {
+      const box = media.getBoundingClientRect();
+      if (box.width * box.height > area) { best = media; area = box.width * box.height; }
+    }
+    return area >= 120 * 68 ? best : null;
+  }
+
+  function applyMarks() {
+    const enabled = settings.marks && Object.keys(history).length > 0;
+    if (!enabled) {
+      for (const node of document.querySelectorAll("[data-nsfwdl-saved]")) node.removeAttribute("data-nsfwdl-saved");
+      return;
+    }
+    if (!document.getElementById(MARK_STYLE_ID) && document.head) {
+      document.head.append(el("style", {id: MARK_STYLE_ID, text: "[data-nsfwdl-saved]{outline:3px solid #22c55e !important;outline-offset:-3px !important}"}));
+    }
+    for (const anchor of document.querySelectorAll("a[href]")) {
+      const href = anchor.getAttribute("href");
+      if (marksSeen.get(anchor) === href || host.contains(anchor)) continue;
+      const url = videoLinkTarget(site, href, location.href);
+      // Thumbnails that haven't laid out yet are looked at again later.
+      if (!url || !wasDownloaded(url)) { marksSeen.set(anchor, href); continue; }
+      if (!url || !wasDownloaded(url)) continue;
+      const media = biggestMedia(anchor);
+      if (media) marksSeen.set(anchor, href);
+      if (media && !media.hasAttribute("data-nsfwdl-saved")) {
+        media.setAttribute("data-nsfwdl-saved", "");
+        if (!media.getAttribute("title")) media.setAttribute("title", "Downloaded before with NSFWDL");
+      }
+    }
+    if (!marksObserver && typeof MutationObserver === "function" && document.body) {
+      // Listings load more thumbnails as you scroll, and carousels reveal
+      // thumbnails that were hidden (0x0) at the first look.
+      marksObserver = new MutationObserver(scheduleMarks);
+      marksObserver.observe(document.body, {childList: true, subtree: true});
+      window.addEventListener("scroll", scheduleMarks, {passive: true});
+    }
   }
 
   // ── Keyboard shortcut and menu ─────────────────────────────────────────
@@ -965,4 +1219,5 @@
   renderDock();
   sync();
   setInterval(sync, 1000);
+  scheduleMarks();
 })();

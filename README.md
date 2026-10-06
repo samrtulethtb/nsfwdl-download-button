@@ -27,9 +27,20 @@ file goes straight to your browser's downloads. Powered by
   while it runs: the button shows the progress.
 - **Buttons on thumbnails** (desktop). Hover a video on a listing, search or
   profile page and press ⬇ NSFWDL, without opening the video.
+- **xHamster mirrors too:** the button also appears on video pages of
+  xHamster's mirror domains (xhspot.com, xhaccess.com and the like).
 - **Preferred quality.** Set Best, 1080p, 720p, 480p or Smallest in ⚙
   Settings, and one click on Download starts it straight away.
-- **Several downloads at once**, each with its own progress row.
+- **Several downloads at once**, each with its own progress row. Start as
+  many as you like: four run at a time and the rest wait their turn in the
+  panel, then start on their own.
+- **Already downloaded?** Videos you saved get a green outline on their
+  thumbnails, "✓ Downloaded" on the button, and "✓ Again" on the hover
+  button. The list stays in your userscript manager; turn it off or clear it
+  in ⚙ Settings.
+- **Works in a background tab.** The tab title shows the progress
+  ("⬇ 45% · …"), and a notification tells you when a file is saved, or when
+  it is ready and needs one tap.
 - **Shortcut:** Alt+Shift+D opens the downloader on a video page.
 - **Minimize** to a small round button, left or right corner; both are
   remembered.
@@ -64,9 +75,12 @@ declared as `@antifeature payment`.
   reach NSFWDL from your IP address, and your userscript manager may send
   your nsfwdl.com cookies (that is how an active Supporter session is
   recognised).
-- The script stores only its settings, whether you minimized the button and
-  how many files it saved (for one rating reminder), with
-  `GM_getValue`/`GM_setValue`.
+- The script stores only its settings, whether you minimized the button, how
+  many files it saved (for one rating reminder) and, unless you turn it off,
+  the IDs of the videos you saved (to mark them), with
+  `GM_getValue`/`GM_setValue`. None of it is ever sent anywhere.
+- `@grant GM_notification` shows a notification when a download finishes
+  while the tab is in the background. Nothing else.
 - No analytics, ads or tracking code in the script. The interface is built
   from text nodes only (no `innerHTML`), inside a Shadow DOM.
 - Links use `noopener`, `noreferrer` and `referrerPolicy="no-referrer"`.

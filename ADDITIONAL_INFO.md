@@ -3,7 +3,7 @@
 Press **Download** on a video, pick a quality, and the MP4 goes straight to
 your browser's downloads. No new tab, no copying links, no pop-ups.
 
-**Works on:** PornHub (incl. Shorties) · xHamster · XVideos · XNXX · RedGifs ·
+**Works on:** PornHub (incl. Shorties) · xHamster (and its mirrors) · XVideos · XNXX · RedGifs ·
 Eporner · SpankBang · Erome · YouPorn · RedTube · ThisVid · TXXX network ·
 and more (20 sites)
 
@@ -26,8 +26,13 @@ and more (20 sites)
   hover a video and press ⬇ NSFWDL, without opening it (desktop).
 - ⚡ **One click with a preferred quality.** Pick Best, 1080p, 720p, 480p or
   Smallest once in ⚙ Settings; after that, Download starts it straight away.
-- 📥 **Several downloads at once**, each with its own progress row. Close the
-  panel and they keep going.
+- 📥 **Queue as many as you like.** Four download at a time, the rest wait
+  their turn and start on their own. Close the panel and they keep going.
+- ✅ **See what you already have.** Videos you saved get a green outline on
+  their thumbnails and "✓ Downloaded" on the button (stored only in your
+  userscript manager; clear it or turn it off in ⚙ Settings).
+- 🔔 **Works in a background tab.** Progress in the tab title, and a
+  notification when the file is saved.
 - ⌨️ **Alt+Shift+D** opens the downloader. Minimize the button to a dot, left
   or right corner.
 - 🚫 **No pop-ups. No redirects. No fake download buttons.** In the script
@@ -45,7 +50,8 @@ Downloads are **free**. Files over 500 MB need a paid
 - **Nothing is sent until you click.** Then only the video's public page
   link goes to nsfwdl.com to list qualities and prepare the file.
 - No analytics, ads or tracking code in the script. It stores only its
-  settings.
+  settings and the list of videos you saved (for the ✓ marks), in your
+  userscript manager, never sent anywhere.
 - Readable, unminified source (MIT):
   [GitHub](https://github.com/samrtulethtb/nsfwdl-download-button).
 

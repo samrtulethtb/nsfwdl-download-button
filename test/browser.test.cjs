@@ -31,6 +31,8 @@ const GM_POLYFILL = (store) => `
   window.GM_setValue = (k, v) => { window.__gmStore[k] = v; };
   window.__menu = [];
   window.GM_registerMenuCommand = (name, fn) => window.__menu.push({name, fn});
+  window.__notes = [];
+  window.GM_notification = (details) => window.__notes.push(details);
 `;
 
 const VIDEO_PAGE = '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><main>Mock video page</main></body></html>';
@@ -55,6 +57,40 @@ const EXTRACT = {
 function json(route, body, status) {
   return route.fulfill({status: status || 200, contentType: "application/json", body: JSON.stringify(body)});
 }
+
+// Several downloads: each POST /api/download gets its own id; a job stays
+// "preparing" until window-side release (gate.open) and, when asked, the
+// first hand-over of one id is refused for the active-download limit.
+function multiApi({formats, refuseFirst} = {}) {
+  let next = 0;
+  const jobs = new Map();
+  const gate = {open: false};
+  const handler = async (route, url, calls) => {
+    if (url.pathname === "/api/route") return json(route, {route: "/pornhub-downloader", source: "pornhub", mode: "validated"});
+    if (url.pathname === "/api/extract") return json(route, Object.assign({}, EXTRACT, {formats: formats || EXTRACT.formats}));
+    if (url.pathname === "/api/download") {
+      next += 1;
+      const id = ("job" + next).padEnd(24, "x");
+      jobs.set(id, {refused: false, n: next});
+      return json(route, {download_id: id, state: "queued", mode: "prepared_temp_artifact", download_url: `https://dl.nsfwdl.com/d/${id}`, expires_in: 3600});
+    }
+    const status = url.pathname.match(/^\/api\/download\/([^/]+)\/status$/);
+    if (status) {
+      const id = status[1];
+      const job = jobs.get(id);
+      if (!gate.open) return json(route, {download_id: id, state: "preparing", bytes_prepared: 1_000_000, handoff: "waiting"});
+      const fetched = calls.some((c) => c === `/d/${id}`);
+      if (refuseFirst && job.n === 1 && fetched && !job.refused) { job.refused = true; return json(route, {download_id: id, state: "failed", error_kind: "rate_limited_active_downloads", handoff: "waiting"}); }
+      if (job.refused) return json(route, {download_id: id, state: "failed", error_kind: "rate_limited_active_downloads", handoff: "waiting"});
+      return json(route, {download_id: id, state: "ready", bytes_prepared: 2_000_000, handoff: fetched ? "delivered" : "waiting"});
+    }
+    if (url.pathname.startsWith("/d/")) return route.fulfill({status: 200, headers: {"Content-Type": "video/mp4", "Content-Disposition": 'attachment; filename="v.mp4"'}, body: "x"});
+    return route.fulfill({status: 404, body: ""});
+  };
+  return {handler, gate};
+}
+
+const SIX_FORMATS = [2160, 1440, 1080, 720, 480, 360].map((h) => ({format_ref: `ref-${h}`.padEnd(24, "a"), quality_label: h + "p", height: h, estimated_size_bytes: h * 10000, size_kind: "estimated", access: "free", has_video: true}));
 
 // Default API: route → extract → download (queued) → preparing → ready →
 // browser receiving → delivered.
@@ -241,6 +277,99 @@ async function main() {
       await page.keyboard.press("Alt+Shift+D");
       await page.waitForTimeout(300);
       check("Alt+Shift+D opens the downloader", await widget(page, ".panel").isVisible());
+      await context.close();
+    }
+
+    // 7. Queue: never more than 4 downloads at once; the rest wait in line.
+    {
+      const {handler, gate} = multiApi({formats: SIX_FORMATS});
+      const {context, page, calls, errors} = await setup(browser, {api: handler});
+      await page.goto("https://www.pornhub.com/view_video.php?viewkey=abc123");
+      await inject(page);
+      await page.evaluate(() => { document.title = "Mock video"; });
+      await widget(page, ".dock .btn-primary").click();
+      await widget(page, ".card").first().waitFor();
+      for (const card of await widget(page, ".card").all()) await card.click();
+      await page.waitForTimeout(1500);
+      const starts = calls.filter((c) => c === "/api/download").length;
+      check("only 4 of 6 downloads start at once", starts === 4, starts);
+      const waiting = await widget(page, ".job .line").allTextContents();
+      check("the others say they wait their turn", waiting.filter((t) => /Waiting its turn/.test(t)).length === 2, waiting);
+      check("the tab title shows the downloads running", (await page.title()) === "⬇ 6 running · Mock video", await page.title());
+      await page.evaluate(() => Object.defineProperty(document, "hidden", {configurable: true, get: () => true}));
+      gate.open = true;
+      await page.waitForFunction(() => [...document.querySelector("#nsfwdl-download-widget").shadowRoot.querySelectorAll(".job .line")].filter((l) => /Saved/.test(l.textContent)).length === 6, null, {timeout: 30000})
+        .then(() => check("all six finish, the waiting ones once a slot frees up", true), () => check("all six finish, the waiting ones once a slot frees up", false));
+      check("each was started exactly once", calls.filter((c) => c === "/api/download").length === 6);
+      check("the title is restored when nothing runs", (await page.title()) === "Mock video", await page.title());
+      const notes = await page.evaluate(() => window.__notes.map((n) => n.text));
+      check("a background tab gets a notification per saved file", notes.filter((t) => t.startsWith("Saved: ")).length === 6, notes);
+      const history = await page.evaluate(() => Object.keys(window.__gmStore.history || {}));
+      check("the saved video is remembered by its viewkey", JSON.stringify(history) === JSON.stringify(["pornhub:abc123"]), history);
+      check("no page errors with the queue", errors.length === 0, errors);
+      await context.close();
+    }
+
+    // 8. The active-download limit refuses a hand-over: retried, not failed.
+    {
+      const {handler, gate} = multiApi({refuseFirst: true});
+      gate.open = true;
+      const {context, page, calls} = await setup(browser, {api: handler});
+      await page.goto("https://www.pornhub.com/view_video.php?viewkey=abc123");
+      await inject(page);
+      await widget(page, ".dock .btn-primary").click();
+      await widget(page, ".card").filter({hasText: "720p"}).click();
+      await page.waitForFunction(() => /Waiting its turn/.test(document.querySelector("#nsfwdl-download-widget").shadowRoot.querySelector(".job .line").textContent), null, {timeout: 8000})
+        .then(() => check("a refused hand-over goes back in line", true), () => check("a refused hand-over goes back in line", false));
+      await page.waitForFunction(() => /Saved/.test(document.querySelector("#nsfwdl-download-widget").shadowRoot.querySelector(".job .line").textContent), null, {timeout: 20000})
+        .then(() => check("and finishes on the next try", true), () => check("and finishes on the next try", false));
+      check("it was started again once", calls.filter((c) => c === "/api/download").length === 2);
+      check("one row, not a failed one plus a new one", await widget(page, ".job").count() === 1);
+      await context.close();
+    }
+
+    // 9. Downloaded marks: thumbnail outline, hover label, dock, clearing.
+    {
+      const store = {history: {"pornhub:listing1": 20000, "pornhub:abc123": 20000}};
+      const {context, page, errors} = await setup(browser, {api: defaultApi(), pageHtml: LISTING_PAGE});
+      await page.goto("https://www.pornhub.com/video");
+      await inject(page, {store});
+      await page.waitForTimeout(700);
+      check("a downloaded video's thumbnail is marked", await page.locator("#thumb1 img[data-nsfwdl-saved]").count() === 1);
+      check("other thumbnails are not", await page.locator("#xv img[data-nsfwdl-saved]").count() === 0);
+      const outline = await page.locator("#thumb1 img").evaluate((img) => getComputedStyle(img).outlineStyle);
+      check("the mark is an outline (no layout change)", outline === "solid", outline);
+      await page.hover("#thumb1 img");
+      await page.waitForTimeout(100);
+      check("the hover button says it was downloaded", (await page.locator("#nsfwdl-thumb-button button").textContent()).includes("Again"));
+      await page.evaluate(() => { const a = document.createElement("a"); a.id = "late"; a.href = "/view_video.php?viewkey=listing1"; a.innerHTML = '<img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="320" height="180">'; document.body.append(a); });
+      await page.waitForTimeout(1800);
+      check("thumbnails loaded later are marked too", await page.locator("#late img[data-nsfwdl-saved]").count() === 1);
+      check("no page errors with marks", errors.length === 0, errors);
+      await context.close();
+
+      const video = await setup(browser, {api: defaultApi()});
+      await video.page.goto("https://www.pornhub.com/view_video.php?viewkey=abc123");
+      await inject(video.page, {store});
+      check("the dock says the video was downloaded before", (await widget(video.page, ".brand small").textContent()).includes("Downloaded"));
+      await widget(video.page, ".dock .btn-primary").click();
+      await widget(video.page, "text=⚙ Settings").click();
+      await widget(video.page, "text=Clear the list").click();
+      check("clearing empties the stored list", await video.page.evaluate(() => Object.keys(window.__gmStore.history).length === 0));
+      check("and the dock forgets it", !(await widget(video.page, ".brand small").textContent()).includes("Downloaded"));
+      await video.context.close();
+    }
+
+    // 10. An xHamster mirror's video page gets the button.
+    {
+      const {context, page, bodies} = await setup(browser, {api: defaultApi()});
+      await page.goto("https://xhspot.com/videos/some-title-9357877");
+      await inject(page);
+      check("a mirror video page gets the button", await widget(page, ".dock").isVisible());
+      check("the dock names xHamster", (await widget(page, ".brand small").textContent()) === "xHamster");
+      await widget(page, ".dock .btn-primary").click();
+      await widget(page, ".card").first().waitFor();
+      check("the mirror link is sent as is (NSFWDL rewrites it)", bodies.some((b) => b.url === "https://xhspot.com/videos/some-title-9357877"), bodies);
       await context.close();
     }
   } finally {
