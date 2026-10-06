@@ -17,7 +17,7 @@
 // @name:ko      NSFWDL Video Downloader – PornHub, xHamster, XVideos, XNXX를 클릭 한 번에 MP4로, 팝업 없음
 // @name:zh-CN   NSFWDL 视频下载器 – 一键将 PornHub、xHamster、XVideos、XNXX 保存为 MP4，无弹窗
 // @namespace    https://nsfwdl.com/
-// @version      2.1.0
+// @version      2.1.1
 // @description  Download videos without leaving the page: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang and 13 more sites. Pick a real quality with its file size, watch live progress, and the MP4 goes straight to your downloads. Download buttons on thumbnails, a preferred quality for one-click saving, no pop-ups.
 // @description:ro  Descarcă video fără să părăsești pagina: PornHub (inclusiv Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang și încă 13 site-uri. Alegi o calitate reală cu mărimea fișierului, vezi progresul live, iar MP4-ul ajunge direct în descărcări. Butoane pe miniaturi, calitate preferată pentru un singur click, fără pop-up-uri.
 // @description:es  Descarga vídeos sin salir de la página: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang y 13 sitios más. Elige una calidad real con su tamaño, mira el progreso en vivo y el MP4 llega directo a tus descargas. Botones en las miniaturas, calidad preferida en un clic, sin pop-ups.
@@ -83,7 +83,24 @@
 // @match        *://*.pornhub.com/*
 // @match        *://*.pornhub.org/*
 // @include      /^https?:\/\/(?:[a-z0-9-]+\.)*xhamster[0-9]{1,3}\.(?:com|desi)\//
-// @include      /^https?:\/\/(?:[a-z0-9-]+\.)*[a-z0-9-]*xh[a-z0-9-]*\.[a-z]{2,24}\/videos\/[^\/?#]+-(?:xh[0-9A-Za-z]{4,12}|[0-9]{6,9})\/?(?:[?#].*)?$/
+// @match        *://*.fullxh.com/videos/*
+// @match        *://*.megaxh.com/videos/*
+// @match        *://*.xhaccess.com/videos/*
+// @match        *://*.xhamp.net/videos/*
+// @match        *://*.xhbig.com/videos/*
+// @match        *://*.xhco.life/videos/*
+// @match        *://*.xhco.live/videos/*
+// @match        *://*.xhezr.skin/videos/*
+// @match        *://*.xhfanclub.com/videos/*
+// @match        *://*.xhfuck.com/videos/*
+// @match        *://*.xhnetwork.live/videos/*
+// @match        *://*.xhplanet.com/videos/*
+// @match        *://*.xhreal5.com/videos/*
+// @match        *://*.xhsocial.com/videos/*
+// @match        *://*.xhspot.com/videos/*
+// @match        *://*.xhtotal.com/videos/*
+// @match        *://*.xhtv.live/videos/*
+// @match        *://*.xhvid1.com/videos/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM.xmlHttpRequest
 // @grant        GM_getValue
