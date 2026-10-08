@@ -17,7 +17,7 @@
 // @name:ko      NSFWDL Video Downloader – PornHub, xHamster, XVideos, XNXX를 클릭 한 번에 MP4로, 팝업 없음
 // @name:zh-CN   NSFWDL 视频下载器 – 一键将 PornHub、xHamster、XVideos、XNXX 保存为 MP4，无弹窗
 // @namespace    https://nsfwdl.com/
-// @version      2.1.1
+// @version      2.2.0
 // @description  Download videos without leaving the page: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang and 13 more sites. Pick a real quality with its file size, watch live progress, and the MP4 goes straight to your downloads. Download buttons on thumbnails, a preferred quality for one-click saving, no pop-ups.
 // @description:ro  Descarcă video fără să părăsești pagina: PornHub (inclusiv Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang și încă 13 site-uri. Alegi o calitate reală cu mărimea fișierului, vezi progresul live, iar MP4-ul ajunge direct în descărcări. Butoane pe miniaturi, calitate preferată pentru un singur click, fără pop-up-uri.
 // @description:es  Descarga vídeos sin salir de la página: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang y 13 sitios más. Elige una calidad real con su tamaño, mira el progreso en vivo y el MP4 llega directo a tus descargas. Botones en las miniaturas, calidad preferida en un clic, sin pop-ups.
@@ -110,7 +110,7 @@
 // @grant        GM.notification
 // @connect      nsfwdl.com
 // @connect      dl.nsfwdl.com
-// @antifeature  payment Downloads are free. Files over 500 MB need a paid NSFWDL Supporter key; those choices are shown with a lock and never started for a free session.
+// @antifeature  payment Downloads are free. Files over 500 MB need a paid NSFWDL Supporter key (entered in Settings); without one those choices are shown with a lock and never started.
 // @run-at       document-idle
 // @noframes
 // ==/UserScript==
@@ -124,8 +124,12 @@
 // - Requests go to nsfwdl.com and its download host dl.nsfwdl.com, nowhere
 //   else. They carry a fixed "/userscript" marker so NSFWDL can count
 //   downloads made from this script. Like any visit, they reach NSFWDL from
-//   your IP address, and your userscript manager may send your nsfwdl.com
-//   cookies (that is how an active Supporter session is recognised).
+//   your IP address.
+// - Supporter key (optional, Settings): userscript managers don't send your
+//   nsfwdl.com cookies, so the key you enter is exchanged once on nsfwdl.com
+//   for a session token. The script keeps the token in your userscript
+//   manager and sends it only to nsfwdl.com, in an X-NSFWDL-Supporter
+//   header. "Remove" ends that session; the key itself is never stored.
 // - The script stores only its settings, whether you minimized the button
 //   and, unless you turn it off, a list of the videos you saved with it, to
 //   mark them as downloaded (GM_setValue, never sent anywhere). No
@@ -252,7 +256,7 @@
     return "";
   }
 
-  function normalizeFormats(data) {
+  function normalizeFormats(data, supporterActive) {
     const formats = (data && Array.isArray(data.formats) ? data.formats : [])
       .filter((f) => f && typeof f.format_ref === "string" && f.format_ref && f.access !== "unsupported");
     const withVideo = formats.filter((f) => f.has_video !== false);
@@ -266,7 +270,7 @@
         fps: Number(f.fps) > 30 ? Math.round(Number(f.fps)) : 0,
         sizeBytes: size > 0 ? size : null,
         sizeExact: f.size_kind === "exact",
-        locked: f.access === "supporter",
+        locked: f.access === "supporter" && !supporterActive,
         recommended: f.recommended === true,
         badge: qualityBadge(height),
       };
@@ -363,10 +367,13 @@
     const send = gmRequestFunction();
     return new Promise((resolve, reject) => {
       const fail = (message, extra) => reject(Object.assign(new Error(message), {status: 0, transient: true}, extra || {}));
+      const headers = body ? {"Content-Type": "application/json", Accept: "application/json"} : {Accept: "application/json"};
+      const token = supporterToken();
+      if (token) headers["X-NSFWDL-Supporter"] = token;
       send({
         method,
         url: NSFWDL + path,
-        headers: body ? {"Content-Type": "application/json", Accept: "application/json"} : {Accept: "application/json"},
+        headers,
         data: body ? JSON.stringify(body) : undefined,
         timeout: timeout || 45000,
         onload: (response) => {
@@ -375,6 +382,7 @@
           if (!data || typeof data !== "object" || Array.isArray(data)) data = {};
           const status = Number(response.status) || 0;
           if (status >= 200 && status < 300) { resolve(data); return; }
+          if (data.error_kind === "supporter_session_expired" && token) forgetSupporter();
           const message = typeof data.message === "string" && data.message.trim()
             ? data.message.trim().slice(0, 300)
             : status === 429 ? "Too many requests right now. Wait a moment and try again." : "NSFWDL couldn't process this video.";
@@ -413,6 +421,69 @@
 
   const settings = readSettings();
   const inPage = Boolean(gmRequestFunction());
+
+  // ── Supporter session (token only; the key itself is never stored) ─────
+  // {token, expiresAt (unix seconds)}. The server is the authority: an
+  // expired or revoked session answers supporter_session_expired, which
+  // drops it here too.
+  let supporter = readSupporter();
+  let supporterChecked = false;
+
+  function readSupporter() {
+    const stored = readValue("supporter", null);
+    if (!stored || typeof stored !== "object" || typeof stored.token !== "string" || !stored.token) return null;
+    const expiresAt = Number(stored.expiresAt) || 0;
+    return expiresAt * 1000 > Date.now() ? {token: stored.token, expiresAt} : null;
+  }
+
+  function supporterToken() {
+    return supporter && supporter.expiresAt * 1000 > Date.now() ? supporter.token : "";
+  }
+
+  function supporterActive() {
+    return Boolean(supporterToken());
+  }
+
+  function forgetSupporter() {
+    supporter = null;
+    writeValue("supporter", null);
+  }
+
+  // Checks a stored session once per page, before the first format list.
+  // Re-reads the storage first: another tab may have added or removed it.
+  async function checkSupporter() {
+    const stored = readSupporter();
+    if (!stored || !supporter || stored.token !== supporter.token) supporterChecked = false;
+    supporter = stored;
+    if (supporterChecked || !supporterToken()) return;
+    supporterChecked = true;
+    try {
+      const status = await api("GET", "/api/supporter/status", null, 15000);
+      if (status.tier !== "supporter") forgetSupporter();
+      else if (Number(status.expires_at)) {
+        supporter = {token: supporter.token, expiresAt: Number(status.expires_at)};
+        writeValue("supporter", supporter);
+      }
+    } catch (error) {
+      if (!error.transient) forgetSupporter();
+      else supporterChecked = false;
+    }
+  }
+
+  async function activateSupporter(key) {
+    const data = await api("POST", "/api/supporter/activate", {key, client: "userscript"}, 20000);
+    if (data.tier !== "supporter" || typeof data.session_token !== "string" || !data.session_token) {
+      throw new Error("That key could not be activated.");
+    }
+    supporter = {token: data.session_token, expiresAt: Number(data.expires_at) || 0};
+    supporterChecked = true;
+    writeValue("supporter", supporter);
+  }
+
+  async function removeSupporter() {
+    try { await api("POST", "/api/supporter/logout", {}, 15000); } catch (_) { /* removed locally anyway */ }
+    forgetSupporter();
+  }
 
   // ── Downloaded marks (local list, never sent anywhere) ─────────────────
   // {videoKey: day number}; the oldest entries go past HISTORY_LIMIT.
@@ -550,6 +621,11 @@
     .setting select { min-height: 38px; padding: 0 10px; border: 1px solid rgba(196,181,253,.3); border-radius: 10px; background: #1d1330; color: #fff; font: inherit; }
     .setting.check { flex-direction: row; align-items: center; gap: 10px; }
     .setting small { color: #a99bc8; font-size: 11px; }
+    .setting.supporter { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(196,181,253,.15); }
+    .keyform { display: flex; gap: 8px; }
+    .keyform input { flex: 1; min-width: 0; min-height: 38px; padding: 0 10px; border: 1px solid rgba(196,181,253,.3); border-radius: 10px; background: #1d1330; color: #fff; font: inherit; }
+    .keyform .btn { min-height: 38px; }
+    .error-text { color: #fecaca; }
     .rate { margin-top: 10px; padding: 9px 11px; border-radius: 12px; background: rgba(167,139,250,.12); font-size: 12px; color: #ddd6fe; }
     .rate a { color: #f9a8d4; font-weight: 800; }
     .sponsor-slot[hidden] { display: none; }
@@ -622,6 +698,7 @@
     jobs: [],
     token: 0,
     primaryButton: null,
+    supporterMessage: "",  // last Supporter key result, shown in Settings
   };
 
   const FINISHED = ["saved", "handed", "failed"];
@@ -687,7 +764,7 @@
     return el("div", {class: "foot"}, [
       el("span", {text: "No pop-ups. No redirects."}),
       el("span", {class: "links"}, [
-        el("button", {class: "linkbtn", type: "button", text: "⚙ Settings", onclick: () => { state.view = state.view === "settings" ? "pick" : "settings"; render(); }}),
+        el("button", {class: "linkbtn", type: "button", text: "⚙ Settings", onclick: () => { state.view = state.view === "settings" ? "pick" : "settings"; state.supporterMessage = ""; render(); }}),
         externalLink(targetUrl(site, url || state.pageUrl || location.href), "Open on NSFWDL ↗"),
       ]),
     ]);
@@ -725,12 +802,13 @@
     state.target = {url, info: null, choices: null, error: null, loading: true};
     render();
     try {
+      await checkSupporter();
       const route = await api("POST", "/api/route", {url, page_path: PAGE_PATH}, 20000);
       const payload = {url, mode: route.mode || "validated", device: deviceClass(), page_path: PAGE_PATH};
       if (route.source) payload.expected_source = route.source;
       const data = await api("POST", "/api/extract", payload, 60000);
       if (token !== state.token) return;
-      const choices = normalizeFormats(data);
+      const choices = normalizeFormats(data, supporterActive());
       state.target = {url, info: data, choices, error: null, loading: false};
       const preferred = oneClick ? pickPreferred(choices, settings.quality) : null;
       if (preferred) startJob(preferred);
@@ -769,7 +847,10 @@
     if (!choices.length) return [el("p", {class: "center", text: "No downloadable format was found for this video."})];
     const section = el("div", {class: "section"}, [el("h4", {text: "Choose a quality · MP4"}), el("div", {class: "grid"}, choices.map(choiceCard))]);
     if (choices.some((c) => c.locked)) {
-      section.append(el("p", {class: "note"}, ["🔒 Files over 500 MB need a paid ", externalLink(NSFWDL + "/supporter", "Supporter key"), ". Everything else is free."]));
+      section.append(el("p", {class: "note"}, [
+        "🔒 Files over 500 MB need a paid ", externalLink(NSFWDL + "/supporter", "Supporter key"), ". Everything else is free. Have a key? ",
+        el("button", {class: "linkbtn", type: "button", text: "Enter it in Settings", onclick: () => { state.view = "settings"; render(); }}),
+      ]));
     }
     return [section];
   }
@@ -838,10 +919,64 @@
           remembered ? remembered + " video" + (remembered === 1 ? "" : "s") + " remembered, only in your userscript manager. " : "The list stays only in your userscript manager. ",
           remembered ? el("button", {class: "linkbtn", type: "button", text: "Clear the list", onclick: () => { clearHistory(); renderDock(); render(); }}) : null,
         ]),
+        supporterSetting(),
         el("p", {class: "note", text: "Shortcut: Alt+Shift+D opens the downloader on a video page."}),
       ]),
       footer(),
     ];
+  }
+
+  // Supporter key: entered once, exchanged for a session token on nsfwdl.com.
+  function supporterSetting() {
+    const message = el("p", {class: "note", role: "status", "aria-live": "polite", text: state.supporterMessage || ""});
+    if (supporterActive()) {
+      const until = new Date(supporter.expiresAt * 1000).toLocaleString();
+      return el("div", {class: "setting supporter"}, [
+        el("span", {text: "Supporter key"}),
+        el("small", {text: "✓ Supporter active until " + until + ". Files up to about 2 GB are unlocked."}),
+        el("div", {class: "row"}, [el("button", {class: "btn btn-ghost", type: "button", text: "Remove from this browser", onclick: async () => {
+          await removeSupporter();
+          state.supporterMessage = "Supporter session removed.";
+          resetTargetLocks();
+          render();
+        }})]),
+        message,
+      ]);
+    }
+    const input = el("input", {type: "password", autocomplete: "off", spellcheck: "false", placeholder: "NSFW-DL…", "aria-label": "Supporter key", maxlength: "256"});
+    const button = el("button", {class: "btn btn-primary", type: "submit", text: "Activate"});
+    const form = el("form", {class: "keyform", onsubmit: async (event) => {
+      event.preventDefault();
+      const key = input.value.trim();
+      if (key.length < 19) { message.textContent = "Paste the whole key, like NSFW-DLAB-CD12-EF34."; message.className = "note error-text"; return; }
+      button.disabled = true;
+      message.className = "note";
+      message.textContent = "Activating…";
+      try {
+        await activateSupporter(key);
+        state.supporterMessage = "Supporter activated. Large files are now unlocked.";
+        resetTargetLocks();
+      } catch (error) {
+        state.supporterMessage = "";
+        input.value = "";
+        button.disabled = false;
+        message.className = "note error-text";
+        message.textContent = error.message || "That key could not be activated.";
+        return;
+      }
+      render();
+    }}, [input, button]);
+    return el("div", {class: "setting supporter"}, [
+      el("span", {text: "Supporter key"}),
+      form,
+      el("small", {}, ["Unlocks files over 500 MB. ", externalLink(NSFWDL + "/supporter", "Get a key"), ". The key is exchanged on nsfwdl.com for a session; only that session is kept here."]),
+      message,
+    ]);
+  }
+
+  // Re-reads the open video's formats so the locks match the session.
+  function resetTargetLocks() {
+    if (state.target && state.target.info) state.target.choices = normalizeFormats(state.target.info, supporterActive());
   }
 
   function saveSettings() {

@@ -82,7 +82,8 @@ list: [supported sites](https://nsfwdl.com/supported-sites).
 Downloads are free. Files over 500 MB need a paid
 [NSFWDL Supporter key](https://nsfwdl.com/supporter); the panel shows those
 qualities with a 🔒 and never starts them for a free session. This is
-declared as `@antifeature payment`.
+declared as `@antifeature payment`. Have a key? Enter it once in the panel's
+⚙ Settings → Supporter key, and the large qualities unlock in the script.
 
 ## Privacy and permissions
 
@@ -94,9 +95,12 @@ declared as `@antifeature payment`.
   to nsfwdl.com to list its formats; choosing one starts the job and
   follows its status. The requests carry a fixed `/userscript` marker so
   NSFWDL can count downloads made from the script. Like any visit, they
-  reach NSFWDL from your IP address, and your userscript manager may send
-  your nsfwdl.com cookies (that is how an active Supporter session is
-  recognised).
+  reach NSFWDL from your IP address.
+- Supporter key (optional): userscript managers don't send nsfwdl.com
+  cookies, so a key entered in Settings is exchanged once on nsfwdl.com for
+  a session token. The script stores that token (never the key) in your
+  userscript manager and sends it only to nsfwdl.com, in an
+  `X-NSFWDL-Supporter` header. "Remove from this browser" ends the session.
 - The script stores only its settings, whether you minimized the button, how
   many files it saved (for one rating reminder) and, unless you turn it off,
   the IDs of the videos you saved (to mark them), with

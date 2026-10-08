@@ -43,7 +43,9 @@ your browser's downloads. No new tab, no copying links, no pop-ups.
 
 Downloads are **free**. Files over 500 MB need a paid
 [NSFWDL Supporter key](https://nsfwdl.com/supporter). Those qualities show a
-🔒 and are never started for a free session.
+🔒 and are never started for a free session. Have a key? Enter it once in
+⚙ Settings → Supporter key and they unlock in the script (only a session
+token is stored, never the key, and it goes only to nsfwdl.com).
 
 ### Privacy
 

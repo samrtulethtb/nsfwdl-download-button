@@ -372,6 +372,84 @@ async function main() {
       check("the mirror link is sent as is (NSFWDL rewrites it)", bodies.some((b) => b.url === "https://xhspot.com/videos/some-title-9357877"), bodies);
       await context.close();
     }
+
+    // 11. Supporter key: entered in Settings, exchanged for a session token
+    // that unlocks the large formats and travels in its own header.
+    {
+      const TOKEN = "session-token-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+      const KEY = "NSFW-DLAB-CD12-EF34";
+      const EXPIRES = Math.floor(Date.now() / 1000) + 15 * 86400;
+      const seen = [];
+      const base = defaultApi();
+      const api = async (route, url, calls) => {
+        const header = route.request().headers()["x-nsfwdl-supporter"] || "";
+        seen.push({path: url.pathname, header});
+        if (url.pathname === "/api/supporter/activate") {
+          const body = JSON.parse(route.request().postData());
+          if (body.key !== KEY) return json(route, {error_kind: "supporter_key_invalid", message: "This supporter key is invalid.", transient: false}, 401);
+          return json(route, {tier: "supporter", expires_at: EXPIRES, session_token: body.client === "userscript" ? TOKEN : undefined});
+        }
+        if (url.pathname === "/api/supporter/status") {
+          if (header === TOKEN) return json(route, {tier: "supporter", expires_at: EXPIRES});
+          if (header) return json(route, {error_kind: "supporter_session_expired", message: "This supporter session has expired.", transient: false}, 401);
+          return json(route, {tier: "free", expires_at: null});
+        }
+        if (url.pathname === "/api/supporter/logout") return json(route, {tier: "free", expires_at: null});
+        return base(route, url, calls);
+      };
+      const {context, page, bodies, errors} = await setup(browser, {api});
+      await page.goto("https://www.pornhub.com/view_video.php?viewkey=abc123");
+      await inject(page);
+      await widget(page, ".dock .btn-primary").click();
+      await widget(page, ".card").first().waitFor();
+      check("free: the 4K format is locked", await widget(page, ".card.locked").count() === 1);
+      check("free: no session check without a stored token", !seen.some((c) => c.path === "/api/supporter/status"));
+      await widget(page, "text=Enter it in Settings").click();
+      await widget(page, ".keyform input").fill("NSFW-DLZZ-ZZZZ-ZZZZ");
+      await widget(page, ".keyform button").click();
+      await widget(page, "text=This supporter key is invalid.").waitFor({timeout: 5000});
+      check("a wrong key shows the server's message", true);
+      check("a wrong key stores nothing", await page.evaluate(() => !window.__gmStore.supporter));
+      await widget(page, ".keyform input").fill(KEY);
+      await widget(page, ".keyform button").click();
+      await widget(page, "text=Supporter active until").waitFor({timeout: 5000});
+      check("activation asks for a userscript session", bodies.some((b) => b.key === KEY && b.client === "userscript"));
+      const stored = await page.evaluate(() => window.__gmStore.supporter);
+      check("only the session token is stored, never the key", stored && stored.token === TOKEN && !JSON.stringify(stored).includes(KEY), stored);
+      await widget(page, "text=⚙ Settings").click();
+      check("the 4K format is unlocked", await widget(page, ".card.locked").count() === 0);
+      await widget(page, ".card", {hasText: "2160p"}).first().click();
+      await page.waitForTimeout(400);
+      check("the 4K download carries the session header", seen.some((c) => c.path === "/api/download" && c.header === TOKEN), seen.filter((c) => c.path === "/api/download"));
+      const afterActivation = seen.slice(seen.findLastIndex((c) => c.path === "/api/supporter/activate") + 1).filter((c) => c.path.startsWith("/api/"));
+      check("every API call after activation carries it", afterActivation.length > 0 && afterActivation.every((c) => c.header === TOKEN), afterActivation);
+      await widget(page, "text=⚙ Settings").click();
+      await widget(page, "text=Remove from this browser").click();
+      await widget(page, ".keyform input").waitFor({timeout: 5000});
+      check("removing logs the session out on nsfwdl.com", seen.some((c) => c.path === "/api/supporter/logout" && c.header === TOKEN));
+      check("and forgets it locally", await page.evaluate(() => !window.__gmStore.supporter));
+      check("no page errors in the Supporter flow", errors.length === 0, errors);
+      await context.close();
+
+      // A stored session the server no longer accepts is dropped before the formats load.
+      const stale = await setup(browser, {api});
+      await stale.page.goto("https://www.pornhub.com/view_video.php?viewkey=abc123");
+      await inject(stale.page, {store: {supporter: {token: "revoked-token", expiresAt: EXPIRES}}});
+      await widget(stale.page, ".dock .btn-primary").click();
+      await widget(stale.page, ".card").first().waitFor();
+      check("a revoked session is dropped", await stale.page.evaluate(() => !window.__gmStore.supporter));
+      check("and the 4K format stays locked", await widget(stale.page, ".card.locked").count() === 1);
+      await stale.context.close();
+
+      // A stored session that is still valid unlocks straight away.
+      const kept = await setup(browser, {api});
+      await kept.page.goto("https://www.pornhub.com/view_video.php?viewkey=abc123");
+      await inject(kept.page, {store: {supporter: {token: TOKEN, expiresAt: EXPIRES}}});
+      await widget(kept.page, ".dock .btn-primary").click();
+      await widget(kept.page, ".card").first().waitFor();
+      check("a stored valid session unlocks the 4K format", await widget(kept.page, ".card.locked").count() === 0);
+      await kept.context.close();
+    }
   } finally {
     await browser.close();
   }
