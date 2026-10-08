@@ -27,6 +27,9 @@ file goes straight to your browser's downloads. Powered by
   while it runs: the button shows the progress.
 - **Buttons on thumbnails** (desktop). Hover a video on a listing, search or
   profile page and press ⬇ NSFWDL, without opening the video.
+- **RedGifs feeds too:** scroll the home feed, a niche, a profile or the
+  clips under a video, and the button takes the clip on screen (the page
+  link doesn't change there, so the script reads which clip is playing).
 - **xHamster mirrors too:** the button also appears on video pages of
   xHamster's mirror domains (xhspot.com, xhaccess.com and the like).
 - **Preferred quality.** Set Best, 1080p, 720p, 480p or Smallest in ⚙

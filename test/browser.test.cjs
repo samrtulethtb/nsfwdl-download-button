@@ -450,6 +450,54 @@ async function main() {
       check("a stored valid session unlocks the 4K format", await widget(kept.page, ".card.locked").count() === 0);
       await kept.context.close();
     }
+
+    // 12. RedGifs feed: one URL while clips scroll by; the active clip decides.
+    {
+      const FEED_PAGE = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div class="previewFeed">
+        <div class="GifPreview GifPreview_isActive GifPreview_isVideo" data-feed-item-id="firstclipone"><video muted></video></div>
+        <div class="GifPreview GifPreview_isVideo" data-feed-item-id="secondcliptwo"></div>
+        <div class="GifPreview" data-feed-item-id="aphotothree"></div>
+      </div></body></html>`;
+      const activate = (page, id) => page.evaluate((id) => {
+        document.querySelectorAll(".GifPreview").forEach((g) => g.classList.toggle("GifPreview_isActive", g.dataset.feedItemId === id));
+        const active = document.querySelector(".GifPreview_isActive");
+        if (active.classList.contains("GifPreview_isVideo")) active.append(document.querySelector("video"));
+        else document.querySelector("video").remove();
+      }, id);
+      const {context, page, bodies, errors} = await setup(browser, {api: defaultApi(), pageHtml: FEED_PAGE});
+      await page.goto("https://www.redgifs.com/");
+      await inject(page);
+      check("RedGifs feed: the dock shows on the home feed", await widget(page, ".dock").isVisible());
+      await activate(page, "secondcliptwo");
+      await widget(page, ".dock .btn-primary").click();
+      await widget(page, ".card").first().waitFor();
+      const extracted = bodies.filter((b) => b.url && b.mode).map((b) => b.url);
+      check("RedGifs feed: the clip on screen is the one sent", extracted[extracted.length - 1] === "https://www.redgifs.com/watch/secondcliptwo", extracted);
+      await activate(page, "firstclipone");
+      await widget(page, "text=Show the clip on screen now").waitFor({timeout: 3000});
+      check("RedGifs feed: the open panel says the clip changed", true);
+      await widget(page, "text=Show the clip on screen now").click();
+      await widget(page, ".card").first().waitFor();
+      const again = bodies.filter((b) => b.url && b.mode).map((b) => b.url);
+      check("RedGifs feed: and loads the new clip on request", again[again.length - 1] === "https://www.redgifs.com/watch/firstclipone", again);
+      await widget(page, ".btn-icon[aria-label=Close]").click();
+      await activate(page, "aphotothree");
+      await page.waitForTimeout(1300);
+      check("RedGifs feed: no button while a photo is on screen", !(await page.locator("#nsfwdl-download-widget").isVisible().catch(() => false)));
+      check("RedGifs feed: no page errors", errors.length === 0, errors);
+      await context.close();
+
+      const watch = await setup(browser, {api: defaultApi(), pageHtml: FEED_PAGE});
+      await watch.page.goto("https://www.redgifs.com/watch/firstclipone");
+      await inject(watch.page);
+      await activate(watch.page, "secondcliptwo");
+      await watch.page.waitForTimeout(1200);
+      await widget(watch.page, ".dock .btn-primary").click();
+      await widget(watch.page, ".card").first().waitFor();
+      const sent = watch.bodies.filter((b) => b.url && b.mode).map((b) => b.url);
+      check("RedGifs /watch/ page scrolled down: the clip on screen, not the URL's", sent[sent.length - 1] === "https://www.redgifs.com/watch/secondcliptwo", sent);
+      await watch.context.close();
+    }
   } finally {
     await browser.close();
   }

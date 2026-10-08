@@ -17,7 +17,7 @@
 // @name:ko      NSFWDL Video Downloader – PornHub, xHamster, XVideos, XNXX를 클릭 한 번에 MP4로, 팝업 없음
 // @name:zh-CN   NSFWDL 视频下载器 – 一键将 PornHub、xHamster、XVideos、XNXX 保存为 MP4，无弹窗
 // @namespace    https://nsfwdl.com/
-// @version      2.2.0
+// @version      2.3.0
 // @description  Download videos without leaving the page: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang and 13 more sites. Pick a real quality with its file size, watch live progress, and the MP4 goes straight to your downloads. Download buttons on thumbnails, a preferred quality for one-click saving, no pop-ups.
 // @description:ro  Descarcă video fără să părăsești pagina: PornHub (inclusiv Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang și încă 13 site-uri. Alegi o calitate reală cu mărimea fișierului, vezi progresul live, iar MP4-ul ajunge direct în descărcări. Butoane pe miniaturi, calitate preferată pentru un singur click, fără pop-up-uri.
 // @description:es  Descarga vídeos sin salir de la página: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang y 13 sitios más. Elige una calidad real con su tamaño, mira el progreso en vivo y el MP4 llega directo a tus descargas. Botones en las miniaturas, calidad preferida en un clic, sin pop-ups.
@@ -116,9 +116,10 @@
 // ==/UserScript==
 
 // How it works (and what it sends):
-// - On a single-video page of a supported site it shows a small Download
-//   button. Nothing is requested until you open the panel. Then the current
-//   video's public page link is sent to https://nsfwdl.com only, to list its
+// - On a single-video page of a supported site (and on RedGifs feeds, for
+//   the clip on screen) it shows a small Download button. Nothing is
+//   requested until you open the panel. Then the current video's public
+//   page link is sent to https://nsfwdl.com only, to list its
 //   real formats. Choosing one starts the job on NSFWDL; the panel follows
 //   its status and hands the finished MP4 to your browser's downloads.
 // - Requests go to nsfwdl.com and its download host dl.nsfwdl.com, nowhere
@@ -226,6 +227,38 @@
       if (id) return "xhamster:" + id;
     }
     return site.id + ":" + url.pathname.replace(/\/+$/, "").toLowerCase();
+  }
+
+  // ── Feeds ──────────────────────────────────────────────────────────────
+  // RedGifs' feeds (home, /browse, niches, profiles, and the list under a
+  // /watch/ clip) keep one URL while clips scroll by. RedGifs marks the clip
+  // on screen as div.GifPreview_isActive[data-feed-item-id="<id>"] and moves
+  // its single <video> there (checked live, desktop and phone, 2026-10-08).
+  // Only the page is read; nothing is sent until you click.
+  // Returns the clip's /watch/ link, "" when the clip on screen is not a
+  // video, or undefined on pages without a feed (the URL decides there).
+  const REDGIFS_ID = /^[A-Za-z0-9]{4,100}$/;
+  function redgifsFeedUrl(doc) {
+    const previews = doc.querySelectorAll(".GifPreview[data-feed-item-id]");
+    if (!previews.length) return undefined;
+    let active = doc.querySelector(".GifPreview.GifPreview_isActive[data-feed-item-id]");
+    if (!active) {
+      const playing = Array.from(doc.querySelectorAll(".GifPreview[data-feed-item-id] video")).find((v) => !v.paused);
+      active = playing ? playing.closest(".GifPreview[data-feed-item-id]") : null;
+    }
+    if (!active || !(active.classList.contains("GifPreview_isVideo") || active.querySelector("video"))) return "";
+    const id = active.getAttribute("data-feed-item-id") || "";
+    return REDGIFS_ID.test(id) ? "https://www.redgifs.com/watch/" + id.toLowerCase() : "";
+  }
+  const FEEDS = Object.freeze({redgifs: redgifsFeedUrl});
+
+  // The video the dock is for: the clip on screen in a feed, else the page.
+  function currentVideoUrl(site, href, doc) {
+    let url;
+    try { url = new URL(href); } catch (_) { return ""; }
+    const feed = site && FEEDS[site.id] ? FEEDS[site.id](doc) : undefined;
+    if (feed !== undefined) return feed;
+    return isVideoPage(site, url) ? href.split("#")[0] : "";
   }
 
   // Version 1's behaviour, kept as the fallback: the NSFWDL page for this
@@ -349,7 +382,7 @@
   }
 
   if (typeof module === "object" && module.exports) {
-    module.exports = {SITES, siteFor, siteForUrl, mirrorSite, videoKey, isVideoPage, targetUrl, videoLinkTarget, normalizeFormats, pickPreferred, safeDownloadUrl, qualityBadge, jobView, formatDuration, MAX_PARALLEL};
+    module.exports = {SITES, FEEDS, currentVideoUrl, siteFor, siteForUrl, mirrorSite, videoKey, isVideoPage, targetUrl, videoLinkTarget, normalizeFormats, pickPreferred, safeDownloadUrl, qualityBadge, jobView, formatDuration, MAX_PARALLEL};
     return;
   }
 
@@ -771,6 +804,7 @@
   }
 
   function dockAction() {
+    if (FEEDS[site.id]) sync();   // the clip on screen now, not at the last tick
     if (state.pageUrl) openPanelFor(state.pageUrl, {oneClick: true});
     else openPanel();   // not a video page: show the downloads started from thumbnails
   }
@@ -843,9 +877,13 @@
       if (target.error.transient) actions.append(el("button", {class: "btn btn-primary", type: "button", text: "Try again", onclick: () => loadFormats(target.url, false)}));
       return [el("div", {class: "section"}, [el("div", {class: "error", role: "alert", text: target.error.message}), actions])];
     }
+    // In a feed the clip on screen may have changed since the panel opened.
+    const moved = FEEDS[site.id] && state.pageUrl && target.url !== state.pageUrl
+      ? el("div", {class: "row"}, [el("button", {class: "btn btn-primary", type: "button", text: "Show the clip on screen now", onclick: () => openPanelFor(state.pageUrl)})])
+      : null;
     const choices = target.choices || [];
-    if (!choices.length) return [el("p", {class: "center", text: "No downloadable format was found for this video."})];
-    const section = el("div", {class: "section"}, [el("h4", {text: "Choose a quality · MP4"}), el("div", {class: "grid"}, choices.map(choiceCard))]);
+    if (!choices.length) return [el("p", {class: "center", text: "No downloadable format was found for this video."}), moved];
+    const section = el("div", {class: "section"}, [moved ? el("p", {class: "note", text: "You scrolled to another clip. These formats are for the one you opened."}) : null, moved, el("h4", {text: "Choose a quality · MP4"}), el("div", {class: "grid"}, choices.map(choiceCard))]);
     if (choices.some((c) => c.locked)) {
       section.append(el("p", {class: "note"}, [
         "🔒 Files over 500 MB need a paid ", externalLink(NSFWDL + "/supporter", "Supporter key"), ". Everything else is free. Have a key? ",
@@ -1346,7 +1384,8 @@
   } catch (_) { /* optional */ }
 
   // ── Page tracking ──────────────────────────────────────────────────────
-  // The dock shows on single-video pages, and also elsewhere while it has
+  // The dock shows on single-video pages and while a RedGifs feed has a
+  // video on screen, and also elsewhere while it has
   // downloads to show (a thumbnail started one, or the site changed pages
   // without reloading).
   function ensureWidget() {
@@ -1354,11 +1393,14 @@
   }
 
   let lastHref = "";
+  let lastVideo = null;
   function sync() {
-    if (location.href === lastHref) return;
+    const video = currentVideoUrl(site, location.href, document);
+    if (location.href === lastHref && video === lastVideo) return;
     lastHref = location.href;
-    const onVideo = isVideoPage(site, new URL(location.href));
-    state.pageUrl = onVideo ? location.href.split("#")[0] : "";
+    lastVideo = video;
+    const onVideo = Boolean(video);
+    state.pageUrl = video;
     if (onVideo || state.jobs.length || state.open) {
       ensureWidget();
       renderDock();

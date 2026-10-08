@@ -62,6 +62,8 @@ token is stored, never the key, and it goes only to nsfwdl.com).
 
 - Without `GM_xmlhttpRequest` (some managers), the button opens the video in
   NSFWDL in a new tab instead.
+- On RedGifs feeds (home, niches, profiles) the button takes the clip on
+  screen, even though the page link stays the same while you scroll.
 - Private, login-only or paid videos are not supported.
 - Download only videos you are allowed to save.
 
