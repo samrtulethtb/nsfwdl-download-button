@@ -280,7 +280,7 @@ async function main() {
       await context.close();
     }
 
-    // 7. Queue: never more than 4 downloads at once; the rest wait in line.
+    // 7. Queue: never more than 3 downloads at once (Free); the rest wait in line.
     {
       const {handler, gate} = multiApi({formats: SIX_FORMATS});
       const {context, page, calls, errors} = await setup(browser, {api: handler});
@@ -292,9 +292,9 @@ async function main() {
       for (const card of await widget(page, ".card").all()) await card.click();
       await page.waitForTimeout(1500);
       const starts = calls.filter((c) => c === "/api/download").length;
-      check("only 4 of 6 downloads start at once", starts === 4, starts);
+      check("only 3 of 6 downloads start at once", starts === 3, starts);
       const waiting = await widget(page, ".job .line").allTextContents();
-      check("the others say they wait their turn", waiting.filter((t) => /Waiting its turn/.test(t)).length === 2, waiting);
+      check("the others say they wait their turn", waiting.filter((t) => /Waiting its turn/.test(t)).length === 3, waiting);
       check("the tab title shows the downloads running", (await page.title()) === "⬇ 6 running · Mock video", await page.title());
       await page.evaluate(() => Object.defineProperty(document, "hidden", {configurable: true, get: () => true}));
       gate.open = true;

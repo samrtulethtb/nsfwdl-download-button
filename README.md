@@ -35,7 +35,7 @@ file goes straight to your browser's downloads. Powered by
 - **Preferred quality.** Set Best, 1080p, 720p, 480p or Smallest in ⚙
   Settings, and one click on Download starts it straight away.
 - **Several downloads at once**, each with its own progress row. Start as
-  many as you like: four run at a time and the rest wait their turn in the
+  many as you like: three run at a time (four with Supporter) and the rest wait their turn in the
   panel, then start on their own.
 - **Already downloaded?** Videos you saved get a green outline on their
   thumbnails, "✓ Downloaded" on the button, and "✓ Again" on the hover
@@ -82,7 +82,7 @@ list: [supported sites](https://nsfwdl.com/supported-sites).
 
 ## Free and Supporter
 
-Downloads are free. Files over 500 MB need a paid
+Downloads are free, up to 20 a day. More a day (300) and files over 500 MB need a paid
 [NSFWDL Supporter key](https://nsfwdl.com/supporter); the panel shows those
 qualities with a 🔒 and never starts them for a free session. This is
 declared as `@antifeature payment`. Have a key? Enter it once in the panel's

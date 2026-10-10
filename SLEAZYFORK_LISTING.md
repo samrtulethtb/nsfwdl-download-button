@@ -36,7 +36,7 @@ your browser's downloads. No new tab, no copying links, no pop-ups.
   hover a video and press ⬇ NSFWDL, without opening it (desktop).
 - ⚡ **One click with a preferred quality.** Pick Best, 1080p, 720p, 480p or
   Smallest once in ⚙ Settings; after that, Download starts it straight away.
-- 📥 **Queue as many as you like.** Four run at a time, the rest wait
+- 📥 **Queue as many as you like.** Three run at a time (four with Supporter), the rest wait
   their turn and start on their own. Close the panel and they keep going.
 - ✅ **See what you already have.** Videos you saved get a green outline on
   their thumbnails and "✓ Downloaded" on the button (stored only in your
@@ -50,7 +50,7 @@ your browser's downloads. No new tab, no copying links, no pop-ups.
 
 ### Free and Supporter (disclosed as `@antifeature payment`)
 
-Downloads are **free**. Files over 500 MB need a paid
+Downloads are **free**, up to 20 a day. More a day (300) and files over 500 MB need a paid
 [NSFWDL Supporter key](https://nsfwdl.com/supporter). Those qualities show a
 🔒 and are never started for a free session. Have a key? Enter it once in
 ⚙ Settings → Supporter key and they unlock in the script (only a session

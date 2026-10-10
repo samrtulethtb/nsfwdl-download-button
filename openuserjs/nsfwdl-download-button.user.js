@@ -17,7 +17,7 @@
 // @name:ko      NSFWDL Video Downloader – PornHub, xHamster, XVideos, XNXX를 클릭 한 번에 MP4로, 팝업 없음
 // @name:zh-CN   NSFWDL 视频下载器 – 一键将 PornHub、xHamster、XVideos、XNXX 保存为 MP4，无弹窗
 // @namespace    https://nsfwdl.com/
-// @version      2.3.1
+// @version      2.4.0
 // @description  Download videos without leaving the page: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang and 13 more sites. Pick a real quality with its file size, watch live progress, and the MP4 goes straight to your downloads. Download buttons on thumbnails, a preferred quality for one-click saving, no pop-ups.
 // @description:ro  Descarcă video fără să părăsești pagina: PornHub (inclusiv Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang și încă 13 site-uri. Alegi o calitate reală cu mărimea fișierului, vezi progresul live, iar MP4-ul ajunge direct în descărcări. Butoane pe miniaturi, calitate preferată pentru un singur click, fără pop-up-uri.
 // @description:es  Descarga vídeos sin salir de la página: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang y 13 sitios más. Elige una calidad real con su tamaño, mira el progreso en vivo y el MP4 llega directo a tus descargas. Botones en las miniaturas, calidad preferida en un clic, sin pop-ups.
@@ -110,7 +110,7 @@
 // @grant        GM.notification
 // @connect      nsfwdl.com
 // @connect      dl.nsfwdl.com
-// @antifeature  membership Downloads are free. Files over 500 MB need a paid NSFWDL Supporter key (entered in Settings); without one those choices are shown with a lock and never started.
+// @antifeature  membership Downloads are free, up to 20 a day. More a day and files over 500 MB need a paid NSFWDL Supporter key (entered in Settings); without one, large files are shown with a lock and never started.
 // @run-at       document-idle
 // @noframes
 // ==/UserScript==
@@ -158,7 +158,8 @@
   // At most this many downloads run at once from the script; the rest wait
   // their turn in the panel. NSFWDL lets one connection read 6 files at a
   // time, and the site itself may need a slot too.
-  const MAX_PARALLEL = 4;
+  const MAX_PARALLEL = 4;    // with a Supporter session
+  const FREE_PARALLEL = 3;   // NSFWDL's Free limit on files at once (2026-10-11)
   const HISTORY_LIMIT = 3000;
   // xHamster's rotating mirror domains (xhspot.com, xhaccess.com, ...): a
   // video page there ends in xHamster's own video ID, "xh..." or the 6-9
@@ -382,7 +383,7 @@
   }
 
   if (typeof module === "object" && module.exports) {
-    module.exports = {SITES, FEEDS, currentVideoUrl, siteFor, siteForUrl, mirrorSite, videoKey, isVideoPage, targetUrl, videoLinkTarget, normalizeFormats, pickPreferred, safeDownloadUrl, qualityBadge, jobView, formatDuration, MAX_PARALLEL};
+    module.exports = {SITES, FEEDS, currentVideoUrl, siteFor, siteForUrl, mirrorSite, videoKey, isVideoPage, targetUrl, videoLinkTarget, normalizeFormats, pickPreferred, safeDownloadUrl, qualityBadge, jobView, formatDuration, MAX_PARALLEL, FREE_PARALLEL};
     return;
   }
 
@@ -732,6 +733,7 @@
     token: 0,
     primaryButton: null,
     supporterMessage: "",  // last Supporter key result, shown in Settings
+    dailyLeft: null,       // Free downloads left today, once NSFWDL says few are left
   };
 
   const FINISHED = ["saved", "handed", "failed"];
@@ -926,6 +928,12 @@
   function jobsSection() {
     if (!state.jobs.length) return [];
     const section = el("div", {class: "section"}, [el("h4", {text: "Your downloads"}), ...state.jobs.slice().reverse().map(jobRow)]);
+    if (state.dailyLeft !== null && state.dailyLeft !== undefined && !supporterActive()) {
+      section.append(el("p", {class: "note"}, [
+        (state.dailyLeft === 1 ? "1 free download" : state.dailyLeft + " free downloads") + " left today. A ",
+        externalLink(NSFWDL + "/supporter", "Supporter key"), " (from $3) raises it to 300 a day.",
+      ]));
+    }
     const saved = Number(readValue("savedCount", 0)) || 0;
     if (saved >= 3 && readValue("rateDismissed", false) !== true) {
       section.append(el("div", {class: "rate"}, [
@@ -1073,7 +1081,7 @@
     render();
   }
 
-  // Starts waiting jobs, oldest first, while fewer than MAX_PARALLEL run.
+  // Starts waiting jobs, oldest first, while fewer than the limit run.
   let pumpTimer = 0;
   function pump() {
     clearTimeout(pumpTimer);
@@ -1085,7 +1093,7 @@
         nextWake = nextWake ? Math.min(nextWake, job.notBefore) : job.notBefore;
         continue;
       }
-      if (running >= MAX_PARALLEL) break;
+      if (running >= (supporterActive() ? MAX_PARALLEL : FREE_PARALLEL)) break;
       running += 1;
       runJob(job);
     }
@@ -1135,6 +1143,7 @@
       const fileUrl = safeDownloadUrl(started.download_url);
       const id = /^[A-Za-z0-9_-]{20,128}$/.test(String(started.download_id || "")) ? started.download_id : null;
       if (!fileUrl || !id) throw Object.assign(new Error("NSFWDL returned an unexpected answer. Try again."), {transient: true});
+      state.dailyLeft = Number.isInteger(started.free_downloads_left_today) ? started.free_downloads_left_today : null;
       if (state.jobs.some((other) => other !== job && other.id === id && activeJobs().includes(other))) {
         removeJob(job);   // the same download is already running (a repeated click)
         pump();
