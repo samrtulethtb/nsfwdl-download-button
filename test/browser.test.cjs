@@ -272,6 +272,43 @@ async function main() {
       await context.close();
     }
 
+    // 4b. The page's own player gets the same button; a related thumbnail
+    // below it keeps its own video.
+    {
+      const pageHtml = `<!doctype html><html><body style="margin:0">
+        <div id="player" style="position:absolute;left:20px;top:20px;width:640px;height:360px;background:#000"><video style="width:640px;height:360px"></video></div>
+        <a id="rel" href="/view_video.php?viewkey=related1" style="position:absolute;left:20px;top:420px;display:block"><img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="320" height="180" alt=""></a>
+      </body></html>`;
+      const {context, page, bodies, errors} = await setup(browser, {api: defaultApi(), pageHtml});
+      await page.goto("https://www.pornhub.com/view_video.php?viewkey=abc123");
+      await inject(page);
+      const thumb = page.locator("#nsfwdl-thumb-button");
+      await page.mouse.move(300, 200);
+      await page.mouse.move(320, 210, {steps: 3});
+      await page.waitForTimeout(150);
+      check("the player gets the download button on hover", await thumb.isVisible());
+      const box = await thumb.boundingBox();
+      check("it sits at the player's top-left corner", box && Math.abs(box.x - 28) <= 2 && Math.abs(box.y - 28) <= 2, box);
+      check("hovering the player requests nothing", bodies.length === 0, bodies);
+      await page.mouse.move(900, 700);
+      await page.waitForTimeout(400);
+      check("leaving the player hides it", !(await thumb.isVisible()));
+      await page.hover("#rel img");
+      await page.waitForTimeout(100);
+      await thumb.locator("button").click();
+      await widget(page, ".card").first().waitFor({timeout: 8000});
+      check("a related thumbnail still opens its own video", bodies.some((b) => b.url === "https://www.pornhub.com/view_video.php?viewkey=related1"), bodies);
+      await widget(page, ".head .btn-icon").click();
+      await page.mouse.move(300, 200);
+      await page.mouse.move(320, 210, {steps: 3});
+      await page.waitForTimeout(150);
+      await thumb.locator("button").click();
+      await page.waitForFunction(() => document.getElementById("nsfwdl-download-widget").shadowRoot.querySelector(".card"));
+      check("the player's button opens this page's video", bodies.some((b) => b.url === "https://www.pornhub.com/view_video.php?viewkey=abc123"), bodies);
+      check("no page errors with the player button", errors.length === 0, errors);
+      await context.close();
+    }
+
     // 5. No GM_xmlhttpRequest: version 1's link.
     {
       const {context, page} = await setup(browser, {api: defaultApi()});

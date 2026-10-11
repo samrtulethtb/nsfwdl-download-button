@@ -40,7 +40,7 @@
 // @name:mr      NSFWDL – मोफत व्हिडिओ डाउनलोडर: PornHub, xHamster, XVideos, XNXX एका क्लिकमध्ये HD MP4 मध्ये
 // @name:ne      NSFWDL – निःशुल्क भिडियो डाउनलोडर: PornHub, xHamster, XVideos, XNXX एक क्लिकमा HD MP4 मा
 // @namespace    https://nsfwdl.com/
-// @version      2.4.3
+// @version      2.5.0
 // @description  Download videos without leaving the page: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang and 13 more sites. Pick a real quality with its file size, watch live progress, and the MP4 goes straight to your downloads. Download buttons on thumbnails, a preferred quality for one-click saving, no pop-ups.
 // @description:ro  Descarcă video fără să părăsești pagina: PornHub (inclusiv Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang și încă 13 site-uri. Alegi o calitate reală cu mărimea fișierului, vezi progresul live, iar MP4-ul ajunge direct în descărcări. Butoane pe miniaturi, calitate preferată pentru un singur click, fără pop-up-uri.
 // @description:es  Descarga vídeos sin salir de la página: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang y 13 sitios más. Elige una calidad real con su tamaño, mira el progreso en vivo y el MP4 llega directo a tus descargas. Botones en las miniaturas, calidad preferida en un clic, sin pop-ups.
@@ -1033,7 +1033,7 @@
       el("div", {class: "body"}, [
         el("label", {class: "setting"}, ["Preferred quality", quality, el("small", {text: "With a preferred quality, one click on Download starts it straight away."})]),
         el("label", {class: "setting"}, ["Button position", position]),
-        el("label", {class: "setting check"}, [thumbs, "Download buttons on thumbnails (desktop)"]),
+        el("label", {class: "setting check"}, [thumbs, "Download buttons on videos and thumbnails (desktop)"]),
         el("label", {class: "setting check"}, [marks, "Mark videos I already downloaded"]),
         el("p", {class: "note"}, [
           remembered ? remembered + " video" + (remembered === 1 ? "" : "s") + " remembered, only in your userscript manager. " : "The list stays only in your userscript manager. ",
@@ -1305,9 +1305,9 @@
     updateJob(job, {phase: "handed"});
   }
 
-  // ── Thumbnail buttons (desktop, hover only) ────────────────────────────
-  // One floating button, moved over whichever thumbnail the pointer is on.
-  // Nothing is requested until it is clicked.
+  // ── Buttons on thumbnails and the player (desktop, hover only) ─────────
+  // One floating button, moved over whichever thumbnail the pointer is on,
+  // or over the page's own player. Nothing is requested until it is clicked.
   const thumbHost = el("div", {id: THUMB_ID});
   for (const [prop, value] of [["position", "fixed"], ["display", "none"], ["z-index", "2147483646"]]) {
     thumbHost.style.setProperty(prop, value, "important");
@@ -1316,7 +1316,9 @@
   const thumbButton = el("button", {type: "button", text: "⬇ NSFWDL", title: "Download this video with NSFWDL"});
   thumbShadow.append(el("style", {text: THUMB_STYLE}), thumbButton);
   let thumbTarget = null;
+  let thumbIsPage = false;
   let thumbHideTimer = 0;
+  let playerCache = {at: 0, rect: null};
 
   function hideThumb() {
     thumbHost.style.setProperty("display", "none", "important");
@@ -1346,12 +1348,35 @@
     return {url, rect};
   }
 
+  // The page's own player: the biggest visible video, or a known player box
+  // before the video element has loaded. Looked up at most every 800 ms.
+  const PLAYER_SELECTORS = "video, #player, #xplayer, #video-player, .mgp_container, .video-player, .player-container, .xp-player";
+  function playerRect() {
+    if (Date.now() - playerCache.at < 800) return playerCache.rect;
+    let best = null;
+    for (const node of document.querySelectorAll(PLAYER_SELECTORS)) {
+      if (host.contains(node)) continue;
+      const box = node.getBoundingClientRect();
+      if (box.width < 320 || box.height < 180 || box.bottom <= 0 || box.top >= window.innerHeight) continue;
+      if (!best || box.width * box.height > best.width * best.height) best = box;
+    }
+    playerCache = {at: Date.now(), rect: best};
+    return best;
+  }
+
+  function playerFor(event) {
+    if (!state.pageUrl) return null;
+    const rect = playerRect();
+    if (!rect || event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) return null;
+    return {url: state.pageUrl, rect, page: true};
+  }
+
   const canHover = window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
   if (inPage && canHover) {
     document.addEventListener("mouseover", (event) => {
       if (!settings.thumbs) return;
       if (event.target === thumbHost) { clearTimeout(thumbHideTimer); return; }
-      const found = thumbnailFor(event.target);
+      const found = thumbnailFor(event.target) || playerFor(event);
       if (!found) {
         // XVideos and XNXX lay a second link to the same video over the
         // thumbnail; moving onto it must not hide the button.
@@ -1360,7 +1385,9 @@
       }
       clearTimeout(thumbHideTimer);
       thumbTarget = found.url;
-      thumbButton.textContent = wasDownloaded(found.url) ? "✓ Again · NSFWDL" : "⬇ NSFWDL";
+      thumbIsPage = Boolean(found.page);
+      const again = wasDownloaded(found.url);
+      thumbButton.textContent = found.page ? (again ? "✓ Again" : "⬇ Download") + " · NSFWDL" : again ? "✓ Again · NSFWDL" : "⬇ NSFWDL";
       thumbHost.style.setProperty("top", Math.max(4, found.rect.top + 8) + "px", "important");
       thumbHost.style.setProperty("left", Math.max(4, found.rect.left + 8) + "px", "important");
       thumbHost.style.setProperty("display", "block", "important");
@@ -1378,10 +1405,12 @@
       event.preventDefault();
       event.stopPropagation();
       const url = thumbTarget;
+      const isPage = thumbIsPage;
       hideThumb();
       if (!url) return;
       ensureWidget();
-      openPanelFor(url, {oneClick: true});
+      if (isPage) dockAction();
+      else openPanelFor(url, {oneClick: true});
     });
   }
 

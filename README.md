@@ -25,8 +25,9 @@ file goes straight to your browser's downloads. Powered by
 - **Live progress.** Waiting, preparing (with a real percentage when the
   size is known), handed to your browser, saved. You can close the panel
   while it runs: the button shows the progress.
-- **Buttons on thumbnails** (desktop). Hover a video on a listing, search or
-  profile page and press ⬇ NSFWDL, without opening the video.
+- **Buttons on the player and on thumbnails** (desktop). Point at the video
+  you're watching and press ⬇ Download right on the player; hover a video on
+  a listing, search or profile page and press ⬇ NSFWDL without opening it.
 - **RedGifs feeds too:** scroll the home feed, a niche, a profile or the
   clips under a video, and the button takes the clip on screen (the page
   link doesn't change there, so the script reads which clip is playing).
@@ -93,7 +94,7 @@ declared as `@antifeature payment`. Have a key? Enter it once in the panel's
 - `@grant GM_xmlhttpRequest` (+ `GM.xmlHttpRequest`) with
   `@connect nsfwdl.com` and `@connect dl.nsfwdl.com` only: requests go to
   NSFWDL and nowhere else.
-- **Nothing is sent until you click.** Hovering thumbnails or browsing
+- **Nothing is sent until you click.** Hovering the player or thumbnails, or browsing
   sends nothing. When you open the panel, the video's public page link goes
   to nsfwdl.com to list its formats; choosing one starts the job and
   follows its status. The requests carry a fixed `/userscript` marker so

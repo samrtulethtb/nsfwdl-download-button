@@ -32,8 +32,9 @@ your browser's downloads. No new tab, no copying links, no pop-ups.
   1080p 60 fps · 220 MB) comes from the actual video. No fake buttons.
 - 📊 **Live progress you can trust.** Waiting → preparing with a real
   percentage → saved, measured on the server, not a fake timer bar.
-- 🖼️ **Download from thumbnails.** On listings, search results and profiles,
-  hover a video and press ⬇ NSFWDL, without opening it (desktop).
+- 🖼️ **A button on the player and on thumbnails.** Point at the video you're
+  watching and press ⬇ Download right on it; on listings, search results and
+  profiles, hover a thumbnail and press ⬇ NSFWDL without opening it (desktop).
 - ⚡ **One click with a preferred quality.** Pick Best, 1080p, 720p, 480p or
   Smallest once in ⚙ Settings; after that, Download starts it straight away.
 - 📥 **Queue as many as you like.** Three run at a time (four with Supporter), the rest wait
