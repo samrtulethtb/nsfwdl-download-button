@@ -3,6 +3,11 @@
 Press **Download** on a video, pick a quality, and the MP4 goes straight to
 your browser's downloads. No new tab, no copying links, no pop-ups.
 
+**🆕 What's new**
+- **2.6** — xHamster Shorts, the first clip of the feed included.
+- **2.5** — a ⬇ Download button right on the player you're watching.
+- **2.4** — a warning before you leave a page whose file isn't saved yet; the listing in 39 languages.
+
 **Works on:** [PornHub](https://nsfwdl.com/pornhub-downloader) (incl. Shorties) · [xHamster](https://nsfwdl.com/xhamster-downloader) (incl. Shorts, and its mirrors) ·
 [XVideos](https://nsfwdl.com/xvideos-downloader) · [XNXX](https://nsfwdl.com/xnxx-downloader) · [RedGifs](https://nsfwdl.com/redgifs-downloader) · [Eporner](https://nsfwdl.com/eporner-downloader) ·
 [SpankBang](https://nsfwdl.com/spankbang-downloader) · [Erome](https://nsfwdl.com/erome-downloader) · [YouPorn](https://nsfwdl.com/youporn-downloader) · [RedTube](https://nsfwdl.com/redtube-downloader) ·

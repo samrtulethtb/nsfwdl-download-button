@@ -1,6 +1,6 @@
 # Sleazy Fork listing – "Additional info" (Markdown)
 
-The name, short description, the 16 translations and the
+The name, short description, the 39 translations and the
 `@antifeature payment` disclosure come from the script header itself.
 Everything below the line is published as ADDITIONAL_INFO.md, which Sleazy
 Fork syncs into **Additional info** (Admin → Source Syncing).
@@ -11,6 +11,11 @@ Fork syncs into **Additional info** (Admin → Source Syncing).
 
 Press **Download** on a video, pick a quality, and the MP4 goes straight to
 your browser's downloads. No new tab, no copying links, no pop-ups.
+
+**🆕 What's new**
+- **2.6** — xHamster Shorts, the first clip of the feed included.
+- **2.5** — a ⬇ Download button right on the player you're watching.
+- **2.4** — a warning before you leave a page whose file isn't saved yet; the listing in 39 languages.
 
 **Works on:** [PornHub](https://nsfwdl.com/pornhub-downloader) (incl. Shorties) · [xHamster](https://nsfwdl.com/xhamster-downloader) (incl. Shorts, and its mirrors) ·
 [XVideos](https://nsfwdl.com/xvideos-downloader) · [XNXX](https://nsfwdl.com/xnxx-downloader) · [RedGifs](https://nsfwdl.com/redgifs-downloader) · [Eporner](https://nsfwdl.com/eporner-downloader) ·
