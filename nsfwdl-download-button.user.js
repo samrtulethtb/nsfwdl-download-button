@@ -17,7 +17,7 @@
 // @name:ko      NSFWDL Video Downloader – PornHub, xHamster, XVideos, XNXX를 클릭 한 번에 MP4로, 팝업 없음
 // @name:zh-CN   NSFWDL 视频下载器 – 一键将 PornHub、xHamster、XVideos、XNXX 保存为 MP4，无弹窗
 // @namespace    https://nsfwdl.com/
-// @version      2.4.1
+// @version      2.4.2
 // @description  Download videos without leaving the page: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang and 13 more sites. Pick a real quality with its file size, watch live progress, and the MP4 goes straight to your downloads. Download buttons on thumbnails, a preferred quality for one-click saving, no pop-ups.
 // @description:ro  Descarcă video fără să părăsești pagina: PornHub (inclusiv Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang și încă 13 site-uri. Alegi o calitate reală cu mărimea fișierului, vezi progresul live, iar MP4-ul ajunge direct în descărcări. Butoane pe miniaturi, calitate preferată pentru un singur click, fără pop-up-uri.
 // @description:es  Descarga vídeos sin salir de la página: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang y 13 sitios más. Elige una calidad real con su tamaño, mira el progreso en vivo y el MP4 llega directo a tus descargas. Botones en las miniaturas, calidad preferida en un clic, sin pop-ups.
@@ -889,7 +889,7 @@
     return el("button", {
       class: "card" + (choice.locked ? " locked" : "") + (choice.recommended && !choice.locked ? " rec" : ""),
       type: "button", "aria-label": label,
-      onclick: () => (choice.locked ? window.open(NSFWDL + "/supporter", "_blank", "noopener,noreferrer") : startJob(choice)),
+      onclick: () => (choice.locked ? window.open(NSFWDL + "/supporter?from=userscript", "_blank", "noopener,noreferrer") : startJob(choice)),
     }, [choice.badge ? el("span", {class: "badge", text: choice.badge}) : null, el("span", {class: "q", text: choice.label}), el("span", {class: "s", text: sub})]);
   }
 
@@ -913,7 +913,7 @@
     const section = el("div", {class: "section"}, [moved ? el("p", {class: "note", text: "You scrolled to another clip. These formats are for the one you opened."}) : null, moved, el("h4", {text: "Choose a quality · MP4"}), el("div", {class: "grid"}, choices.map(choiceCard))]);
     if (choices.some((c) => c.locked)) {
       section.append(el("p", {class: "note"}, [
-        "🔒 Files over 500 MB need a paid ", externalLink(NSFWDL + "/supporter", "Supporter key"), ". Everything else is free. Have a key? ",
+        "🔒 Files over 500 MB need a paid ", externalLink(NSFWDL + "/supporter?from=userscript", "Supporter key"), ". Everything else is free. Have a key? ",
         el("button", {class: "linkbtn", type: "button", text: "Enter it in Settings", onclick: () => { state.view = "settings"; render(); }}),
       ]));
     }
@@ -945,7 +945,7 @@
       actions.append(again);
     }
     if (job.phase === "failed" && job.retry) actions.append(el("button", {class: "btn btn-primary", type: "button", text: "Try again", onclick: () => { removeJob(job); startJob(job.choice, job.target); }}));
-    if (job.phase === "failed" && job.supporter) actions.append(externalLink(NSFWDL + "/supporter", "Supporter options", "btn btn-ghost"));
+    if (job.phase === "failed" && job.supporter) actions.append(externalLink(NSFWDL + "/supporter?from=userscript", "Supporter options", "btn btn-ghost"));
     if (actions.children.length) row.append(actions);
     return row;
   }
@@ -957,7 +957,7 @@
     if (state.dailyLeft !== null && state.dailyLeft !== undefined && !supporterActive()) {
       section.append(el("p", {class: "note"}, [
         (state.dailyLeft === 1 ? "1 free download" : state.dailyLeft + " free downloads") + " left today. A ",
-        externalLink(NSFWDL + "/supporter", "Supporter key"), " (from $3) raises it to 300 a day.",
+        externalLink(NSFWDL + "/supporter?from=userscript", "Supporter key"), " (from $3) raises it to 300 a day.",
       ]));
     }
     const saved = Number(readValue("savedCount", 0)) || 0;
@@ -1041,7 +1041,7 @@
     return el("div", {class: "setting supporter"}, [
       el("span", {text: "Supporter key"}),
       form,
-      el("small", {}, ["Unlocks files over 500 MB. ", externalLink(NSFWDL + "/supporter", "Get a key"), ". The key is exchanged on nsfwdl.com for a session; only that session is kept here."]),
+      el("small", {}, ["Unlocks files over 500 MB. ", externalLink(NSFWDL + "/supporter?from=userscript", "Get a key"), ". The key is exchanged on nsfwdl.com for a session; only that session is kept here."]),
       message,
     ]);
   }
