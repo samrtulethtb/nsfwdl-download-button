@@ -17,7 +17,7 @@
 // @name:ko      NSFWDL Video Downloader – PornHub, xHamster, XVideos, XNXX를 클릭 한 번에 MP4로, 팝업 없음
 // @name:zh-CN   NSFWDL 视频下载器 – 一键将 PornHub、xHamster、XVideos、XNXX 保存为 MP4，无弹窗
 // @namespace    https://nsfwdl.com/
-// @version      2.4.0
+// @version      2.4.1
 // @description  Download videos without leaving the page: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang and 13 more sites. Pick a real quality with its file size, watch live progress, and the MP4 goes straight to your downloads. Download buttons on thumbnails, a preferred quality for one-click saving, no pop-ups.
 // @description:ro  Descarcă video fără să părăsești pagina: PornHub (inclusiv Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang și încă 13 site-uri. Alegi o calitate reală cu mărimea fișierului, vezi progresul live, iar MP4-ul ajunge direct în descărcări. Butoane pe miniaturi, calitate preferată pentru un singur click, fără pop-up-uri.
 // @description:es  Descarga vídeos sin salir de la página: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang y 13 sitios más. Elige una calidad real con su tamaño, mira el progreso en vivo y el MP4 llega directo a tus descargas. Botones en las miniaturas, calidad preferida en un clic, sin pop-ups.
@@ -700,9 +700,18 @@
     return window.matchMedia && window.matchMedia("(max-width: 768px)").matches ? "mobile" : "desktop";
   }
 
+  // Following a file link starts as a navigation, so the browser asks
+  // "beforeunload" first; the leave warning below must not stop our own
+  // hand-over.
+  let handOverAt = 0;
+  function noteHandOver() {
+    handOverAt = Date.now();
+  }
+
   // The file response is "Content-Disposition: attachment", so following the
   // link saves the file and leaves this page in place.
   function saveFile(fileUrl) {
+    noteHandOver();
     const anchor = el("a", {href: fileUrl, rel: "noopener noreferrer"});
     anchor.referrerPolicy = "no-referrer";
     anchor.style.display = "none";
@@ -739,6 +748,22 @@
   const FINISHED = ["saved", "handed", "failed"];
   // Phases that hold a slot (see MAX_PARALLEL); "waiting" ones don't yet.
   const RUNNING = ["starting", "queued", "preparing", "saving", "receiving"];
+  // Phases whose file has not reached the browser yet. The jobs live in this
+  // page: leaving it drops them, and NSFWDL keeps a prepared file nobody
+  // fetches until it expires. 112 userscript files went that way in the 4
+  // days to 2026-10-11, 75 of them followed within 2 minutes by a download
+  // of another video (the visitor had moved on to the next page).
+  const UNSAVED = ["waiting", "starting", "queued", "preparing", "saving", "stalled"];
+
+  function hasUnsavedJobs() {
+    return state.jobs.some((job) => UNSAVED.includes(job.phase));
+  }
+
+  window.addEventListener("beforeunload", (event) => {
+    if (!hasUnsavedJobs() || Date.now() - handOverAt < 3000) return;
+    event.preventDefault();
+    event.returnValue = "";
+  });
 
   function activeJobs() {
     return state.jobs.filter((job) => !FINISHED.includes(job.phase));
@@ -915,7 +940,7 @@
     if (job.phase === "queued" || job.phase === "preparing") row.append(el("div", {class: "sponsor-slot", "data-slot": "reserved", hidden: true}));
     const actions = el("div", {class: "row"});
     if (job.fileUrl && ["saving", "receiving", "stalled", "saved", "handed"].includes(job.phase)) {
-      const again = el("a", {class: "btn " + (job.phase === "stalled" ? "btn-primary" : "btn-ghost"), href: job.fileUrl + "?via=tap", rel: "noopener noreferrer", text: job.phase === "stalled" ? "⬇ Save the file" : "Didn't start? Save again"});
+      const again = el("a", {class: "btn " + (job.phase === "stalled" ? "btn-primary" : "btn-ghost"), href: job.fileUrl + "?via=tap", rel: "noopener noreferrer", text: job.phase === "stalled" ? "⬇ Save the file" : "Didn't start? Save again", onclick: noteHandOver});
       again.referrerPolicy = "no-referrer";
       actions.append(again);
     }
@@ -928,6 +953,7 @@
   function jobsSection() {
     if (!state.jobs.length) return [];
     const section = el("div", {class: "section"}, [el("h4", {text: "Your downloads"}), ...state.jobs.slice().reverse().map(jobRow)]);
+    if (hasUnsavedJobs()) section.append(el("p", {class: "note keep-open", text: "Stay on this page until your files start saving. You can open other videos in a new tab."}));
     if (state.dailyLeft !== null && state.dailyLeft !== undefined && !supporterActive()) {
       section.append(el("p", {class: "note"}, [
         (state.dailyLeft === 1 ? "1 free download" : state.dailyLeft + " free downloads") + " left today. A ",

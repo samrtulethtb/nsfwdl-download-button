@@ -149,6 +149,8 @@ async function main() {
     // 1. Pick a format, follow the job, save the file.
     {
       const {context, page, calls, bodies, errors} = await setup(browser, {api: defaultApi()});
+      const dialogs = [];
+      page.on("dialog", (dialog) => { dialogs.push(dialog.type()); dialog.accept().catch(() => {}); });
       await page.goto("https://www.pornhub.com/view_video.php?viewkey=abc123");
       await inject(page);
       check("dock appears on a video page", await widget(page, ".dock").isVisible());
@@ -178,7 +180,32 @@ async function main() {
         .then(() => check("the job ends as saved once the server sees the file delivered", true), () => check("the job ends as saved once the server sees the file delivered", false));
       check("the dock says Saved", (await widget(page, ".dock .btn-primary").textContent()).includes("Saved"));
       check("the reserved sponsor slot never shows anything", await widget(page, ".sponsor-slot:not([hidden])").count() === 0);
+      check("handing the file to the browser raises no leave warning", dialogs.length === 0, dialogs);
+      check("the stay-on-page note goes once the file is saved", await widget(page, ".keep-open").count() === 0);
+      await page.goto("https://www.pornhub.com/view_video.php?viewkey=other");
+      check("leaving after the file was saved raises no leave warning", dialogs.length === 0, dialogs);
       check("no page errors", errors.length === 0, errors);
+      await context.close();
+    }
+
+    // 1b. Leaving the page while a file is still prepared would drop the
+    // job (nobody fetches it): the browser asks first, and the panel says so.
+    {
+      const {handler} = multiApi();
+      const {context, page, errors} = await setup(browser, {api: handler});
+      const dialogs = [];
+      page.on("dialog", (dialog) => { dialogs.push(dialog.type()); dialog.dismiss().catch(() => {}); });
+      await page.goto("https://www.pornhub.com/view_video.php?viewkey=abc123");
+      await inject(page);
+      await widget(page, ".dock .btn-primary").click();
+      await widget(page, ".card").first().waitFor();
+      await widget(page, ".card").filter({hasText: "720p"}).click();
+      await page.waitForFunction(() => /Preparing/.test(document.querySelector("#nsfwdl-download-widget").shadowRoot.querySelector(".job .line").textContent), null, {timeout: 8000}).catch(() => {});
+      check("while a file is prepared the panel asks to stay on the page", await widget(page, ".keep-open").count() === 1);
+      await page.close({runBeforeUnload: true});
+      await new Promise((resolve) => setTimeout(resolve, 500));   // the page may be gone
+      check("leaving while a file is prepared raises the leave warning", dialogs.includes("beforeunload"), dialogs);
+      check("no page errors while preparing", errors.length === 0, errors);
       await context.close();
     }
 
