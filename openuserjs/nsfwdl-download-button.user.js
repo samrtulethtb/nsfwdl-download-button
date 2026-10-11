@@ -1,40 +1,86 @@
 // ==UserScript==
-// @name         NSFWDL Video Downloader – PornHub, xHamster, XVideos, XNXX to MP4 in one click, no pop-ups
-// @name:ro      NSFWDL Video Downloader – PornHub, xHamster, XVideos, XNXX în MP4 dintr-un click, fără pop-up-uri
-// @name:es      NSFWDL Video Downloader – PornHub, xHamster, XVideos, XNXX a MP4 en un clic, sin pop-ups
-// @name:pt-BR   NSFWDL Video Downloader – PornHub, xHamster, XVideos, XNXX em MP4 com um clique, sem pop-ups
-// @name:fr      NSFWDL Video Downloader – PornHub, xHamster, XVideos, XNXX en MP4 en un clic, sans pop-up
-// @name:de      NSFWDL Video Downloader – PornHub, xHamster, XVideos, XNXX als MP4 mit einem Klick, ohne Pop-ups
-// @name:it      NSFWDL Video Downloader – PornHub, xHamster, XVideos, XNXX in MP4 con un clic, senza pop-up
-// @name:ru      NSFWDL Video Downloader – PornHub, xHamster, XVideos, XNXX в MP4 в один клик, без всплывающих окон
-// @name:uk      NSFWDL Video Downloader – PornHub, xHamster, XVideos, XNXX у MP4 в один клік, без спливаючих вікон
-// @name:pl      NSFWDL Video Downloader – PornHub, xHamster, XVideos, XNXX do MP4 jednym kliknięciem, bez pop-upów
-// @name:tr      NSFWDL Video Downloader – PornHub, xHamster, XVideos, XNXX tek tıkla MP4, açılır pencere yok
-// @name:id      NSFWDL Video Downloader – PornHub, xHamster, XVideos, XNXX ke MP4 sekali klik, tanpa pop-up
-// @name:vi      NSFWDL Video Downloader – PornHub, xHamster, XVideos, XNXX sang MP4 một cú nhấp, không pop-up
-// @name:ar      NSFWDL Video Downloader – PornHub وxHamster وXVideos وXNXX بصيغة MP4 بنقرة واحدة بلا نوافذ منبثقة
-// @name:ja      NSFWDL Video Downloader – PornHub・xHamster・XVideos・XNXX をワンクリックで MP4 保存、ポップアップなし
-// @name:ko      NSFWDL Video Downloader – PornHub, xHamster, XVideos, XNXX를 클릭 한 번에 MP4로, 팝업 없음
-// @name:zh-CN   NSFWDL 视频下载器 – 一键将 PornHub、xHamster、XVideos、XNXX 保存为 MP4，无弹窗
+// @name         NSFWDL Free Video Downloader – PornHub, xHamster, XVideos, XNXX to HD MP4 in one click, no pop-ups
+// @name:ro      NSFWDL – descărcător video gratuit: PornHub, xHamster, XVideos, XNXX în MP4 HD dintr-un click
+// @name:es      NSFWDL – descargador de vídeos gratis: PornHub, xHamster, XVideos, XNXX a MP4 HD en un clic
+// @name:pt-BR   NSFWDL – baixador de vídeos grátis: PornHub, xHamster, XVideos, XNXX em MP4 HD com um clique
+// @name:pt      NSFWDL – descarregador de vídeos grátis: PornHub, xHamster, XVideos, XNXX em MP4 HD num clique
+// @name:fr      NSFWDL – téléchargeur vidéo gratuit : PornHub, xHamster, XVideos, XNXX en MP4 HD en un clic
+// @name:fr-CA   NSFWDL – téléchargeur vidéo gratuit : PornHub, xHamster, XVideos, XNXX en MP4 HD en un clic
+// @name:de      NSFWDL – kostenloser Video-Downloader: PornHub, xHamster, XVideos, XNXX als HD-MP4 mit einem Klick
+// @name:it      NSFWDL – downloader video gratis: PornHub, xHamster, XVideos, XNXX in MP4 HD con un clic
+// @name:nl      NSFWDL – gratis videodownloader: PornHub, xHamster, XVideos, XNXX naar HD-MP4 in één klik
+// @name:ru      NSFWDL – бесплатный загрузчик видео: PornHub, xHamster, XVideos, XNXX в MP4 HD в один клик
+// @name:uk      NSFWDL – безкоштовний завантажувач відео: PornHub, xHamster, XVideos, XNXX у MP4 HD в один клік
+// @name:be      NSFWDL – бясплатны загрузчык відэа: PornHub, xHamster, XVideos, XNXX у MP4 HD адным клікам
+// @name:pl      NSFWDL – darmowy downloader wideo: PornHub, xHamster, XVideos, XNXX do MP4 HD jednym kliknięciem
+// @name:cs      NSFWDL – stahovač videí zdarma: PornHub, xHamster, XVideos, XNXX do HD MP4 jedním kliknutím
+// @name:sk      NSFWDL – sťahovač videí zadarmo: PornHub, xHamster, XVideos, XNXX do HD MP4 jedným kliknutím
+// @name:hu      NSFWDL – ingyenes videóletöltő: PornHub, xHamster, XVideos, XNXX HD MP4-be egy kattintással
+// @name:bg      NSFWDL – безплатен видео даунлоудър: PornHub, xHamster, XVideos, XNXX в HD MP4 с едно щракване
+// @name:hr      NSFWDL – besplatni preuzimač videa: PornHub, xHamster, XVideos, XNXX u HD MP4 jednim klikom
+// @name:sr      NSFWDL – бесплатни преузимач видеа: PornHub, xHamster, XVideos, XNXX у HD MP4 једним кликом
+// @name:el      NSFWDL – δωρεάν λήψη βίντεο: PornHub, xHamster, XVideos, XNXX σε HD MP4 με ένα κλικ, χωρίς pop-up
+// @name:tr      NSFWDL – ücretsiz video indirici: PornHub, xHamster, XVideos, XNXX tek tıkla HD MP4
+// @name:id      NSFWDL – pengunduh video gratis: PornHub, xHamster, XVideos, XNXX ke MP4 HD sekali klik
+// @name:vi      NSFWDL – trình tải video miễn phí: PornHub, xHamster, XVideos, XNXX sang MP4 HD một cú nhấp
+// @name:fil     NSFWDL – libreng video downloader: PornHub, xHamster, XVideos, XNXX sa HD MP4 sa isang click
+// @name:th      NSFWDL – ดาวน์โหลดวิดีโอฟรี: PornHub, xHamster, XVideos, XNXX เป็น MP4 HD ในคลิกเดียว ไม่มีป๊อปอัป
+// @name:ar      NSFWDL – أداة تنزيل فيديو مجانية: PornHub وxHamster وXVideos وXNXX بصيغة MP4 HD بنقرة واحدة
+// @name:he      NSFWDL – מוריד וידאו בחינם: PornHub, xHamster, XVideos, XNXX ל-MP4 באיכות HD בלחיצה אחת
+// @name:ja      NSFWDL 無料動画ダウンローダー – PornHub・xHamster・XVideos・XNXX をワンクリックで HD MP4 保存、ポップアップなし
+// @name:ko      NSFWDL 무료 동영상 다운로더 – PornHub, xHamster, XVideos, XNXX를 클릭 한 번에 HD MP4로, 팝업 없음
+// @name:zh-CN   NSFWDL 免费视频下载器 – 一键将 PornHub、xHamster、XVideos、XNXX 保存为高清 MP4，无弹窗
+// @name:zh-TW   NSFWDL 免費影片下載器 – 一鍵將 PornHub、xHamster、XVideos、XNXX 存成高畫質 MP4，無彈出視窗
+// @name:sv      NSFWDL – gratis videonedladdare: PornHub, xHamster, XVideos, XNXX till HD-MP4 med ett klick
+// @name:da      NSFWDL – gratis videodownloader: PornHub, xHamster, XVideos, XNXX til HD-MP4 med ét klik
+// @name:fi      NSFWDL – ilmainen videolataaja: PornHub, xHamster, XVideos, XNXX HD-MP4:ksi yhdellä klikkauksella
+// @name:nb      NSFWDL – gratis videonedlaster: PornHub, xHamster, XVideos, XNXX til HD-MP4 med ett klikk
+// @name:ka      NSFWDL – უფასო ვიდეო ჩამომტვირთავი: PornHub, xHamster, XVideos, XNXX HD MP4-ად ერთი დაწკაპუნებით
+// @name:eo      NSFWDL – senpaga videoelŝutilo: PornHub, xHamster, XVideos, XNXX al HD MP4 per unu klako
+// @name:mr      NSFWDL – मोफत व्हिडिओ डाउनलोडर: PornHub, xHamster, XVideos, XNXX एका क्लिकमध्ये HD MP4 मध्ये
+// @name:ne      NSFWDL – निःशुल्क भिडियो डाउनलोडर: PornHub, xHamster, XVideos, XNXX एक क्लिकमा HD MP4 मा
 // @namespace    https://nsfwdl.com/
-// @version      2.4.2
+// @version      2.4.3
 // @description  Download videos without leaving the page: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang and 13 more sites. Pick a real quality with its file size, watch live progress, and the MP4 goes straight to your downloads. Download buttons on thumbnails, a preferred quality for one-click saving, no pop-ups.
 // @description:ro  Descarcă video fără să părăsești pagina: PornHub (inclusiv Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang și încă 13 site-uri. Alegi o calitate reală cu mărimea fișierului, vezi progresul live, iar MP4-ul ajunge direct în descărcări. Butoane pe miniaturi, calitate preferată pentru un singur click, fără pop-up-uri.
 // @description:es  Descarga vídeos sin salir de la página: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang y 13 sitios más. Elige una calidad real con su tamaño, mira el progreso en vivo y el MP4 llega directo a tus descargas. Botones en las miniaturas, calidad preferida en un clic, sin pop-ups.
 // @description:pt-BR  Baixe vídeos sem sair da página: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang e mais 13 sites. Escolha uma qualidade real com o tamanho do arquivo, acompanhe o progresso ao vivo e o MP4 vai direto para seus downloads. Botões nas miniaturas, qualidade preferida em um clique, sem pop-ups.
+// @description:pt  Descarregue vídeos sem sair da página: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang e mais 13 sites. Escolha uma qualidade real com o tamanho do ficheiro, acompanhe o progresso em direto e o MP4 vai diretamente para as suas transferências. Botões nas miniaturas, qualidade preferida num clique, sem pop-ups.
 // @description:fr  Téléchargez des vidéos sans quitter la page : PornHub (Shorties inclus), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang et 13 autres sites. Choisissez une vraie qualité avec sa taille, suivez la progression en direct, le MP4 arrive dans vos téléchargements. Boutons sur les miniatures, qualité préférée en un clic, sans pop-up.
+// @description:fr-CA  Téléchargez des vidéos sans quitter la page : PornHub (Shorties inclus), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang et 13 autres sites. Choisissez une vraie qualité avec sa taille, suivez la progression en direct, le MP4 arrive dans vos téléchargements. Boutons sur les miniatures, qualité préférée en un clic, sans pop-up.
 // @description:de  Videos herunterladen, ohne die Seite zu verlassen: PornHub (inkl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang und 13 weitere Seiten. Echte Qualität mit Dateigröße wählen, Live-Fortschritt sehen, die MP4 landet direkt in den Downloads. Buttons auf Vorschaubildern, Wunschqualität mit einem Klick, ohne Pop-ups.
 // @description:it  Scarica video senza lasciare la pagina: PornHub (Shorties inclusi), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang e altri 13 siti. Scegli una qualità reale con la dimensione del file, segui l'avanzamento dal vivo e l'MP4 finisce nei tuoi download. Pulsanti sulle miniature, qualità preferita con un clic, senza pop-up.
+// @description:nl  Download video's zonder de pagina te verlaten: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang en 13 andere sites. Kies een echte kwaliteit met bestandsgrootte, volg de voortgang live en de MP4 gaat direct naar je downloads. Downloadknoppen op miniaturen, een voorkeurskwaliteit voor opslaan met één klik, geen pop-ups.
 // @description:ru  Скачивайте видео, не уходя со страницы: PornHub (вкл. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang и ещё 13 сайтов. Выберите реальное качество с размером файла, следите за прогрессом, MP4 сохранится в загрузки. Кнопки на миниатюрах, любимое качество в один клик, без всплывающих окон.
 // @description:uk  Завантажуйте відео, не залишаючи сторінку: PornHub (з Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang і ще 13 сайтів. Обирайте реальну якість із розміром файлу, стежте за прогресом, MP4 збережеться в завантаження. Кнопки на мініатюрах, улюблена якість в один клік, без спливаючих вікон.
+// @description:be  Спампоўвайце відэа, не пакідаючы старонку: PornHub (з Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang і яшчэ 13 сайтаў. Выбірайце сапраўдную якасць з памерам файла, сачыце за прагрэсам у рэальным часе, і MP4 захаваецца ў спампоўкі. Кнопкі на мініяцюрах, любімая якасць адным клікам, без усплывальных вокнаў.
 // @description:pl  Pobieraj filmy bez opuszczania strony: PornHub (z Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang i 13 innych serwisów. Wybierz prawdziwą jakość z rozmiarem pliku, obserwuj postęp na żywo, MP4 trafi prosto do pobranych. Przyciski na miniaturach, ulubiona jakość jednym kliknięciem, bez pop-upów.
+// @description:cs  Stahujte videa bez opuštění stránky: PornHub (vč. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang a 13 dalších webů. Vyberte skutečnou kvalitu s velikostí souboru, sledujte průběh živě a MP4 se uloží rovnou do stažených souborů. Tlačítka na náhledech, oblíbená kvalita jedním kliknutím, bez pop-upů.
+// @description:sk  Sťahujte videá bez opustenia stránky: PornHub (vrát. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang a 13 ďalších webov. Vyberte si skutočnú kvalitu s veľkosťou súboru, sledujte priebeh naživo a MP4 sa uloží priamo do stiahnutých súborov. Tlačidlá na náhľadoch, obľúbená kvalita jedným kliknutím, bez pop-upov.
+// @description:hu  Töltsd le a videókat az oldal elhagyása nélkül: PornHub (Shorties is), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang és még 13 oldal. Válassz valódi minőséget a fájlmérettel, kövesd élőben a folyamatot, az MP4 egyenesen a letöltésekhez kerül. Letöltőgombok a bélyegképeken, kedvenc minőség egy kattintással, felugró ablakok nélkül.
+// @description:bg  Изтегляйте видеа, без да напускате страницата: PornHub (вкл. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang и още 13 сайта. Изберете реално качество с размера на файла, следете напредъка на живо и MP4 файлът отива направо в изтеглянията. Бутони върху миниатюрите, любимо качество с едно щракване, без изскачащи прозорци.
+// @description:hr  Preuzimajte videozapise bez napuštanja stranice: PornHub (uklj. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang i još 13 stranica. Odaberite stvarnu kvalitetu s veličinom datoteke, pratite napredak uživo, a MP4 ide ravno u vaša preuzimanja. Gumbi na sličicama, omiljena kvaliteta jednim klikom, bez skočnih prozora.
+// @description:sr  Преузимајте видео записе без напуштања странице: PornHub (укључујући Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang и још 13 сајтова. Изаберите стварни квалитет са величином фајла, пратите напредак уживо, а MP4 иде право у преузимања. Дугмад на сличицама, омиљени квалитет једним кликом, без искачућих прозора.
+// @description:el  Κατεβάστε βίντεο χωρίς να φύγετε από τη σελίδα: PornHub (μαζί με Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang και 13 ακόμη ιστότοποι. Διαλέξτε πραγματική ποιότητα με το μέγεθος αρχείου, δείτε την πρόοδο ζωντανά και το MP4 πηγαίνει κατευθείαν στις λήψεις σας. Κουμπιά στις μικρογραφίες, αγαπημένη ποιότητα με ένα κλικ, χωρίς αναδυόμενα παράθυρα.
 // @description:tr  Sayfadan ayrılmadan video indirin: PornHub (Shorties dahil), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang ve 13 site daha. Dosya boyutuyla gerçek bir kalite seçin, canlı ilerlemeyi izleyin; MP4 doğrudan indirilenlere gelir. Küçük resimlerde indirme düğmeleri, tek tıkla tercih edilen kalite, açılır pencere yok.
 // @description:id  Unduh video tanpa meninggalkan halaman: PornHub (termasuk Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang dan 13 situs lain. Pilih kualitas asli lengkap dengan ukuran file, lihat progres langsung, dan MP4 masuk ke unduhan. Tombol di thumbnail, kualitas favorit sekali klik, tanpa pop-up.
 // @description:vi  Tải video ngay trên trang: PornHub (gồm Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang và 13 trang khác. Chọn chất lượng thật kèm dung lượng tệp, xem tiến trình trực tiếp, tệp MP4 được lưu thẳng vào mục tải xuống. Nút tải trên ảnh thu nhỏ, chất lượng ưa thích chỉ một cú nhấp, không pop-up.
+// @description:fil  Mag-download ng mga video nang hindi umaalis sa page: PornHub (kasama ang Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang at 13 pang site. Pumili ng totoong kalidad kasama ang laki ng file, panoorin ang progreso nang live, at diretso sa iyong mga download ang MP4. May download button sa mga thumbnail, paboritong kalidad sa isang click, walang pop-up.
+// @description:th  ดาวน์โหลดวิดีโอโดยไม่ต้องออกจากหน้า: PornHub (รวม Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang และอีก 13 เว็บไซต์ เลือกคุณภาพจริงพร้อมขนาดไฟล์ ดูความคืบหน้าแบบสด แล้ว MP4 จะถูกบันทึกลงในโฟลเดอร์ดาวน์โหลดทันที มีปุ่มดาวน์โหลดบนภาพขนาดย่อ ตั้งคุณภาพที่ชอบเพื่อบันทึกในคลิกเดียว ไม่มีป๊อปอัป
 // @description:ar  نزّل الفيديوهات دون مغادرة الصفحة: PornHub (مع Shorties) وxHamster وXVideos وXNXX وRedGifs وEporner وSpankBang و13 موقعًا آخر. اختر جودة حقيقية مع حجم الملف وتابع التقدم مباشرة، ويُحفظ ملف MP4 في التنزيلات. أزرار على الصور المصغّرة، وجودة مفضّلة بنقرة واحدة، دون نوافذ منبثقة.
+// @description:he  הורידו סרטונים בלי לעזוב את הדף: PornHub (כולל Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang ועוד 13 אתרים. בחרו איכות אמיתית עם גודל הקובץ, עקבו אחרי ההתקדמות בזמן אמת, וקובץ ה-MP4 נשמר ישירות בהורדות. כפתורי הורדה על התמונות הממוזערות, איכות מועדפת בלחיצה אחת, בלי חלונות קופצים.
 // @description:ja  ページを離れずに動画を保存:PornHub(Shorties含む)・xHamster・XVideos・XNXX・RedGifs・Eporner・SpankBang ほか13サイト。実際の画質とファイルサイズを選び、進行状況をリアルタイムで確認、MP4 はそのままダウンロードへ。サムネイルにも保存ボタン、好みの画質をワンクリックで、ポップアップなし。
 // @description:ko  페이지를 떠나지 않고 동영상 저장: PornHub(Shorties 포함), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang 외 13개 사이트. 실제 화질과 파일 크기를 고르고 실시간 진행률을 확인하면 MP4가 다운로드 폴더로 저장됩니다. 썸네일 다운로드 버튼, 선호 화질 원클릭, 팝업 없음.
 // @description:zh-CN  无需离开页面即可下载视频:PornHub(含 Shorties)、xHamster、XVideos、XNXX、RedGifs、Eporner、SpankBang 等 20 个网站。选择真实画质并查看文件大小，实时查看进度，MP4 直接保存到下载。缩略图上也有下载按钮，可设偏好画质一键保存，无弹窗。
+// @description:zh-TW  無需離開頁面即可下載影片：PornHub（含 Shorties）、xHamster、XVideos、XNXX、RedGifs、Eporner、SpankBang 等 20 個網站。選擇真實畫質並查看檔案大小，即時查看進度，MP4 直接存到下載資料夾。縮圖上也有下載按鈕，可設定偏好畫質一鍵儲存，無彈出視窗。
+// @description:sv  Ladda ner videor utan att lämna sidan: PornHub (inkl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang och 13 andra sajter. Välj en verklig kvalitet med filstorlek, följ förloppet live och MP4-filen hamnar direkt i dina nedladdningar. Nedladdningsknappar på miniatyrer, önskad kvalitet med ett klick, inga popup-fönster.
+// @description:da  Download videoer uden at forlade siden: PornHub (inkl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang og 13 andre sider. Vælg en ægte kvalitet med filstørrelse, følg fremskridtet live, og MP4-filen lander direkte i dine overførsler. Downloadknapper på miniaturer, foretrukken kvalitet med ét klik, ingen pop-ups.
+// @description:fi  Lataa videoita poistumatta sivulta: PornHub (myös Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang ja 13 muuta sivustoa. Valitse todellinen laatu tiedostokoon kanssa, seuraa edistymistä reaaliajassa, ja MP4 tallentuu suoraan latauksiin. Latauspainikkeet pikkukuvissa, suosikkilaatu yhdellä klikkauksella, ei ponnahdusikkunoita.
+// @description:nb  Last ned videoer uten å forlate siden: PornHub (inkl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang og 13 andre nettsteder. Velg en ekte kvalitet med filstørrelse, følg fremdriften live, og MP4-filen havner rett i nedlastingene dine. Nedlastingsknapper på miniatyrbilder, foretrukket kvalitet med ett klikk, ingen popup-vinduer.
+// @description:ka  ჩამოტვირთეთ ვიდეოები გვერდის დატოვების გარეშე: PornHub (Shorties-ის ჩათვლით), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang და კიდევ 13 საიტი. აირჩიეთ რეალური ხარისხი ფაილის ზომით, ადევნეთ თვალი პროგრესს რეალურ დროში და MP4 პირდაპირ ჩამოტვირთვებში მოხვდება. ღილაკები მინიატურებზე, სასურველი ხარისხი ერთი დაწკაპუნებით, ამომხტარი ფანჯრების გარეშე.
+// @description:eo  Elŝutu videojn sen forlasi la paĝon: PornHub (inkl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang kaj 13 aliaj retejoj. Elektu veran kvaliton kun dosiergrandeco, sekvu la progreson vive, kaj la MP4 iras rekte al viaj elŝutaĵoj. Elŝutbutonoj sur bildetoj, preferata kvalito per unu klako, sen ŝprucfenestroj.
+// @description:mr  पेज न सोडता व्हिडिओ डाउनलोड करा: PornHub (Shorties सह), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang आणि आणखी 13 साइट्स. फाइल आकारासह खरी क्वालिटी निवडा, प्रगती थेट पाहा, आणि MP4 थेट तुमच्या डाउनलोड्समध्ये जाते. थंबनेलवर डाउनलोड बटणे, एका क्लिकमध्ये आवडती क्वालिटी, पॉप-अप नाहीत.
+// @description:ne  पेज नछोडी भिडियो डाउनलोड गर्नुहोस्: PornHub (Shorties सहित), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang र थप 13 साइटहरू। फाइल साइजसहित वास्तविक गुणस्तर छान्नुहोस्, प्रगति प्रत्यक्ष हेर्नुहोस्, र MP4 सिधै तपाईंको डाउनलोडमा जान्छ। थम्बनेलमा डाउनलोड बटन, एक क्लिकमा मनपर्ने गुणस्तर, पप-अप छैन।
 // @author       NSFWDL
 // @icon         https://nsfwdl.com/static/app-icons/icon-192.png
 // @homepageURL  https://nsfwdl.com/
@@ -962,11 +1008,13 @@
     }
     const saved = Number(readValue("savedCount", 0)) || 0;
     if (saved >= 3 && readValue("rateDismissed", false) !== true) {
+      // Either answer ends it: following the link or "Not now".
+      const dismiss = () => { writeValue("rateDismissed", true); render(); };
+      const rate = externalLink(LISTING_URL + "/feedback", "Rate it ★");
+      rate.addEventListener("click", dismiss);
       section.append(el("div", {class: "rate"}, [
-        "Enjoying NSFWDL? A quick rating helps other people find it. ",
-        externalLink(LISTING_URL + "/feedback", "Rate it ★"),
-        " · ",
-        el("button", {class: "linkbtn", type: "button", text: "Not now", onclick: () => { writeValue("rateDismissed", true); render(); }}),
+        "Enjoying NSFWDL? A quick rating helps other people find it. ", rate, " · ",
+        el("button", {class: "linkbtn", type: "button", text: "Not now", onclick: dismiss}),
       ]));
     }
     return [section];
