@@ -3,7 +3,7 @@
 Press **Download** on a video, pick a quality, and the MP4 goes straight to
 your browser's downloads. No new tab, no copying links, no pop-ups.
 
-**Works on:** [PornHub](https://nsfwdl.com/pornhub-downloader) (incl. Shorties) · [xHamster](https://nsfwdl.com/xhamster-downloader) (and its mirrors) ·
+**Works on:** [PornHub](https://nsfwdl.com/pornhub-downloader) (incl. Shorties) · [xHamster](https://nsfwdl.com/xhamster-downloader) (incl. Shorts, and its mirrors) ·
 [XVideos](https://nsfwdl.com/xvideos-downloader) · [XNXX](https://nsfwdl.com/xnxx-downloader) · [RedGifs](https://nsfwdl.com/redgifs-downloader) · [Eporner](https://nsfwdl.com/eporner-downloader) ·
 [SpankBang](https://nsfwdl.com/spankbang-downloader) · [Erome](https://nsfwdl.com/erome-downloader) · [YouPorn](https://nsfwdl.com/youporn-downloader) · [RedTube](https://nsfwdl.com/redtube-downloader) ·
 [ThisVid](https://nsfwdl.com/thisvid-downloader) · [TXXX network](https://nsfwdl.com/txxx-downloader) · and [more](https://nsfwdl.com/supported-sites) (20 sites)
@@ -64,7 +64,8 @@ token is stored, never the key, and it goes only to nsfwdl.com).
 - Without `GM_xmlhttpRequest` (some managers), the button opens the video in
   NSFWDL in a new tab instead.
 - On RedGifs feeds (home, niches, profiles) the button takes the clip on
-  screen, even though the page link stays the same while you scroll.
+  screen, even though the page link stays the same while you scroll. On
+  xHamster Shorts it takes the clip you're watching, the first one included.
 - Private, login-only or paid videos are not supported.
 - Download only videos you are allowed to save.
 

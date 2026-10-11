@@ -562,6 +562,38 @@ async function main() {
       check("RedGifs /watch/ page scrolled down: the clip on screen, not the URL's", sent[sent.length - 1] === "https://www.redgifs.com/watch/secondcliptwo", sent);
       await watch.context.close();
     }
+
+    // 13. xHamster Shorts: /shorts/<slug>-xh<id> is a video page; the bare
+    // /shorts feed offers its first clip only while that clip is on screen.
+    {
+      const SHORTS_PAGE = `<!doctype html><html><body style="margin:0">
+        <script>window.initials={"layoutPage":{"firstMomentProps":{"id":28535282,"landing":{"link":"https:\\/\\/xhamster.com\\/creators\\/steany\\/shorts"},"title":"x","pageURL":"https:\\/\\/xhamster.com\\/shorts\\/handle-view-close-xh4yTcl"}}};</script>
+        <div data-id="28535282" style="position:absolute;top:0;left:0;width:400px;height:700px"><video muted></video></div>
+        <div data-id="30156109" style="position:absolute;top:2000px;left:0;width:400px;height:700px"></div>
+      </body></html>`;
+      const {context, page, bodies, errors} = await setup(browser, {api: defaultApi(), pageHtml: SHORTS_PAGE});
+      await page.goto("https://xhamster.com/shorts");
+      await inject(page);
+      check("xHamster /shorts: the dock shows for the first clip", await widget(page, ".dock").isVisible());
+      await widget(page, ".dock .btn-primary").click();
+      await widget(page, ".card").first().waitFor();
+      const sent = bodies.filter((b) => b.url && b.mode).map((b) => b.url);
+      check("xHamster /shorts: the first clip's own page is sent", sent[sent.length - 1] === "https://xhamster.com/shorts/handle-view-close-xh4yTcl", sent);
+      await widget(page, ".btn-icon[aria-label=Close]").click();
+      await page.evaluate(() => { document.querySelector('[data-id="28535282"]').style.top = "3000px"; document.querySelector('[data-id="30156109"]').style.top = "0px"; });
+      await page.waitForTimeout(1300);
+      check("xHamster /shorts: no button while another clip is on screen", !(await page.locator("#nsfwdl-download-widget").isVisible().catch(() => false)));
+      check("xHamster /shorts: no page errors", errors.length === 0, errors);
+      await context.close();
+
+      const clip = await setup(browser, {api: defaultApi()});
+      await clip.page.goto("https://xhamster.com/shorts/creampie-xhTPnJY");
+      await inject(clip.page);
+      await widget(clip.page, ".dock .btn-primary").click();
+      await widget(clip.page, ".card").first().waitFor();
+      check("xHamster Shorts clip page: its own link is sent", clip.bodies.some((b) => b.url === "https://xhamster.com/shorts/creampie-xhTPnJY"), clip.bodies);
+      await clip.context.close();
+    }
   } finally {
     await browser.close();
   }

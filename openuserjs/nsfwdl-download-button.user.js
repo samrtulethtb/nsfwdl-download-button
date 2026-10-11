@@ -40,7 +40,7 @@
 // @name:mr      NSFWDL – मोफत व्हिडिओ डाउनलोडर: PornHub, xHamster, XVideos, XNXX एका क्लिकमध्ये HD MP4 मध्ये
 // @name:ne      NSFWDL – निःशुल्क भिडियो डाउनलोडर: PornHub, xHamster, XVideos, XNXX एक क्लिकमा HD MP4 मा
 // @namespace    https://nsfwdl.com/
-// @version      2.5.0
+// @version      2.6.0
 // @description  Download videos without leaving the page: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang and 13 more sites. Pick a real quality with its file size, watch live progress, and the MP4 goes straight to your downloads. Download buttons on thumbnails, a preferred quality for one-click saving, no pop-ups.
 // @description:ro  Descarcă video fără să părăsești pagina: PornHub (inclusiv Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang și încă 13 site-uri. Alegi o calitate reală cu mărimea fișierului, vezi progresul live, iar MP4-ul ajunge direct în descărcări. Butoane pe miniaturi, calitate preferată pentru un singur click, fără pop-up-uri.
 // @description:es  Descarga vídeos sin salir de la página: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang y 13 sitios más. Elige una calidad real con su tamaño, mira el progreso en vivo y el MP4 llega directo a tus descargas. Botones en las miniaturas, calidad preferida en un clic, sin pop-ups.
@@ -215,7 +215,7 @@
   const SITES = [
     {id: "xnxx", name: "XNXX", route: "/xnxx-downloader", hosts: ['xnxx.com'], hostPatterns: [], video: /^\/video-/},
     {id: "xvideos", name: "XVideos", route: "/xvideos-downloader", hosts: ['xvideos.com'], hostPatterns: [], video: /^\/video[.\d]/},
-    {id: "xhamster", name: "xHamster", route: "/xhamster-downloader", hosts: ['xhamster.com', 'xhamster.one', 'xhamster.desi', 'xhms.pro', 'xhday.com', 'xhvid.com'], hostPatterns: [/(?:[a-z0-9-]+\.)*xhamster[0-9]{1,3}\.(?:com|desi)/], video: /^\/videos\//},
+    {id: "xhamster", name: "xHamster", route: "/xhamster-downloader", hosts: ['xhamster.com', 'xhamster.one', 'xhamster.desi', 'xhms.pro', 'xhday.com', 'xhvid.com'], hostPatterns: [/(?:[a-z0-9-]+\.)*xhamster[0-9]{1,3}\.(?:com|desi)/], video: /^\/(?:videos\/|shorts\/[^/?#]+-xh[0-9A-Za-z]{4,12}\/?$)/},
     {id: "eporner", name: "Eporner", route: "/eporner-downloader", hosts: ['eporner.com'], hostPatterns: [], video: /^\/(?:video-|hd-porn\/)/},
     {id: "erome", name: "Erome", route: "/erome-downloader", hosts: ['erome.com'], hostPatterns: [], video: /^\/a\//},
     {id: "redgifs", name: "RedGifs", route: "/redgifs-downloader", hosts: ['redgifs.com'], hostPatterns: [], video: /^\/watch\//},
@@ -297,7 +297,37 @@
     const id = active.getAttribute("data-feed-item-id") || "";
     return REDGIFS_ID.test(id) ? "https://www.redgifs.com/watch/" + id.toLowerCase() : "";
   }
-  const FEEDS = Object.freeze({redgifs: redgifsFeedUrl});
+  // xHamster Shorts: the URL becomes /shorts/<slug>-xh<id> once you scroll
+  // (checked live on desktop, 2026-10-11), which the URL rule covers. Only
+  // the first clip of the bare /shorts feed has no link of its own; the page
+  // names it in "firstMomentProps" (slashes escaped). It is used only while
+  // the clip on screen is that one (div[data-id] = its numeric id).
+  function xhamsterShortsUrl(doc) {
+    if (!/^\/shorts\/?$/.test(doc.location.pathname)) return undefined;
+    let first = null;
+    for (const script of doc.querySelectorAll("script:not([src])")) {
+      const text = script.textContent || "";
+      const at = text.indexOf('"firstMomentProps":{"id":');
+      if (at < 0) continue;
+      const chunk = text.slice(at, at + 20000);
+      const id = (chunk.match(/^"firstMomentProps":\{"id":(\d{3,12})\b/) || [])[1];
+      const page = (chunk.match(/"pageURL":"(https:\\\/\\\/[^"]{10,300})"/) || [])[1];
+      // Keep looking otherwise: a userscript manager may add this very
+      // script inline, and its text names "firstMomentProps" too.
+      if (id && page) { first = {id, url: page.replace(/\\\//g, "/")}; break; }
+    }
+    if (!first || !/^https:\/\/[^/]+\/shorts\/[^/?#]+-xh[0-9A-Za-z]{4,12}\/?$/.test(first.url)) return "";
+    const view = doc.defaultView;
+    let best = null;
+    let bestArea = 0;
+    for (const node of doc.querySelectorAll("div[data-id]")) {
+      const r = node.getBoundingClientRect();
+      const area = Math.max(0, Math.min(r.bottom, view.innerHeight) - Math.max(r.top, 0)) * Math.max(0, Math.min(r.right, view.innerWidth) - Math.max(r.left, 0));
+      if (area > bestArea) { best = node; bestArea = area; }
+    }
+    return best && best.getAttribute("data-id") === first.id ? first.url : "";
+  }
+  const FEEDS = Object.freeze({redgifs: redgifsFeedUrl, xhamster: xhamsterShortsUrl});
 
   // The video the dock is for: the clip on screen in a feed, else the page.
   function currentVideoUrl(site, href, doc) {
@@ -429,7 +459,7 @@
   }
 
   if (typeof module === "object" && module.exports) {
-    module.exports = {SITES, FEEDS, currentVideoUrl, siteFor, siteForUrl, mirrorSite, videoKey, isVideoPage, targetUrl, videoLinkTarget, normalizeFormats, pickPreferred, safeDownloadUrl, qualityBadge, jobView, formatDuration, MAX_PARALLEL, FREE_PARALLEL};
+    module.exports = {SITES, FEEDS, xhamsterShortsUrl, currentVideoUrl, siteFor, siteForUrl, mirrorSite, videoKey, isVideoPage, targetUrl, videoLinkTarget, normalizeFormats, pickPreferred, safeDownloadUrl, qualityBadge, jobView, formatDuration, MAX_PARALLEL, FREE_PARALLEL};
     return;
   }
 

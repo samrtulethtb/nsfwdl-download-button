@@ -57,7 +57,7 @@ Each link opens that site's downloader on nsfwdl.com, which works without
 the script too.
 
 - [PornHub](https://nsfwdl.com/pornhub-downloader) (videos and Shorties)
-- [xHamster](https://nsfwdl.com/xhamster-downloader) (and its mirror domains)
+- [xHamster](https://nsfwdl.com/xhamster-downloader) (videos and Shorts, and its mirror domains)
 - [XVideos](https://nsfwdl.com/xvideos-downloader)
 - [XNXX](https://nsfwdl.com/xnxx-downloader)
 - [RedGifs](https://nsfwdl.com/redgifs-downloader)
