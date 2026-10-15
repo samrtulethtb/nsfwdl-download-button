@@ -594,6 +594,32 @@ async function main() {
       check("xHamster Shorts clip page: its own link is sent", clip.bodies.some((b) => b.url === "https://xhamster.com/shorts/creampie-xhTPnJY"), clip.bodies);
       await clip.context.close();
     }
+
+    // 14. A throwing sync() does not stop the SPA sync chain.
+    {
+      const {context, page, errors} = await setup(browser, {api: defaultApi()});
+      await page.goto("https://www.pornhub.com/view_video.php?viewkey=abc123");
+      await inject(page);
+      await widget(page, ".dock").waitFor();
+      // Break the next renderDock once, then move to another video so the
+      // 1 s chain has real sync work to throw on.
+      await page.evaluate(() => {
+        window.__breakSyncOnce = true;
+        const orig = Element.prototype.replaceChildren;
+        Element.prototype.replaceChildren = function (...args) {
+          if (window.__breakSyncOnce) { window.__breakSyncOnce = false; throw new Error("boom"); }
+          return orig.apply(this, args);
+        };
+      });
+      await page.evaluate(() => history.pushState({}, "", "/view_video.php?viewkey=xyz789"));
+      await page.waitForTimeout(1500);
+      check("the throwing sync surfaced exactly once", errors.filter((e) => /boom/.test(e)).length === 1, errors);
+      // A later sync still runs: leaving video pages removes the widget.
+      await page.evaluate(() => history.pushState({}, "", "/"));
+      await page.waitForFunction(() => !document.querySelector("#nsfwdl-download-widget"), null, {timeout: 8000})
+        .then(() => check("the chain kept running after the throw", true), () => check("the chain kept running after the throw", false));
+      await context.close();
+    }
   } finally {
     await browser.close();
   }
