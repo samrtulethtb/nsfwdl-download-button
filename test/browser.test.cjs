@@ -383,7 +383,7 @@ async function main() {
       await inject(page);
       await widget(page, ".dock .btn-primary").click();
       await widget(page, ".card").filter({hasText: "720p"}).click();
-      await page.waitForFunction(() => /Waiting its turn/.test(document.querySelector("#nsfwdl-download-widget").shadowRoot.querySelector(".job .line").textContent), null, {timeout: 8000})
+      await page.waitForFunction(() => /Waiting for one of your downloads to finish/.test(document.querySelector("#nsfwdl-download-widget").shadowRoot.querySelector(".job .line").textContent), null, {timeout: 8000})
         .then(() => check("a refused hand-over goes back in line", true), () => check("a refused hand-over goes back in line", false));
       await page.waitForFunction(() => /Saved/.test(document.querySelector("#nsfwdl-download-widget").shadowRoot.querySelector(".job .line").textContent), null, {timeout: 20000})
         .then(() => check("and finishes on the next try", true), () => check("and finishes on the next try", false));

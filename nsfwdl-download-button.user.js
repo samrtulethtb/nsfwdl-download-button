@@ -40,7 +40,7 @@
 // @name:mr      NSFWDL – मोफत व्हिडिओ डाउनलोडर: PornHub, xHamster, XVideos, XNXX एका क्लिकमध्ये HD MP4 मध्ये
 // @name:ne      NSFWDL – निःशुल्क भिडियो डाउनलोडर: PornHub, xHamster, XVideos, XNXX एक क्लिकमा HD MP4 मा
 // @namespace    https://nsfwdl.com/
-// @version      2.6.0
+// @version      2.6.1
 // @description  Download videos without leaving the page: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang and 13 more sites. Pick a real quality with its file size, watch live progress, and the MP4 goes straight to your downloads. Download buttons on thumbnails, a preferred quality for one-click saving, no pop-ups.
 // @description:ro  Descarcă video fără să părăsești pagina: PornHub (inclusiv Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang și încă 13 site-uri. Alegi o calitate reală cu mărimea fișierului, vezi progresul live, iar MP4-ul ajunge direct în descărcări. Butoane pe miniaturi, calitate preferată pentru un singur click, fără pop-up-uri.
 // @description:es  Descarga vídeos sin salir de la página: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang y 13 sitios más. Elige una calidad real con su tamaño, mira el progreso en vivo y el MP4 llega directo a tus descargas. Botones en las miniaturas, calidad preferida en un clic, sin pop-ups.
@@ -434,10 +434,24 @@
     return h ? h + ":" + String(m).padStart(2, "0") + ":" + String(r).padStart(2, "0") : m + ":" + String(r).padStart(2, "0");
   }
 
+  // NSFWDL refuses a file while this connection already reads its limit of
+  // files at once (Free: 3). A slot frees only when one of them finishes,
+  // which takes 5-15 minutes on a slow line, so a refused job waits that long
+  // (15 s, then 30 s, then every minute) instead of failing. With 6 tries 15 s
+  // apart, 12 of 20 refused xHamster/PornHub files never arrived (7 days to
+  // 2026-10-12).
+  const SLOT_WAIT_MS = 30 * 60 * 1000;
+
+  function slotRetrySeconds(attempt, retryAfter) {
+    return Math.max(Number(retryAfter) || 0, Math.min(60, 15 * 2 ** Math.max(0, attempt - 1)));
+  }
+
   // What a job's row says, from the server's measured state only.
   function jobView(job) {
     switch (job.phase) {
-      case "waiting": return {mode: "waiting", text: job.ahead > 0 ? "Waiting its turn · " + job.ahead + " ahead" : "Waiting its turn…"};
+      case "waiting":
+        if (job.slotWaitSince) return {mode: "waiting", text: "Waiting for one of your downloads to finish…"};
+        return {mode: "waiting", text: job.ahead > 0 ? "Waiting its turn · " + job.ahead + " ahead" : "Waiting its turn…"};
       case "starting": return {mode: "waiting", text: "Starting…"};
       case "queued": return {mode: "waiting", text: "Waiting for a free slot on NSFWDL…"};
       case "preparing": {
@@ -459,7 +473,7 @@
   }
 
   if (typeof module === "object" && module.exports) {
-    module.exports = {SITES, FEEDS, xhamsterShortsUrl, currentVideoUrl, siteFor, siteForUrl, mirrorSite, videoKey, isVideoPage, targetUrl, videoLinkTarget, normalizeFormats, pickPreferred, safeDownloadUrl, qualityBadge, jobView, formatDuration, MAX_PARALLEL, FREE_PARALLEL};
+    module.exports = {SITES, FEEDS, xhamsterShortsUrl, currentVideoUrl, siteFor, siteForUrl, mirrorSite, videoKey, isVideoPage, targetUrl, videoLinkTarget, normalizeFormats, pickPreferred, safeDownloadUrl, qualityBadge, jobView, formatDuration, slotRetrySeconds, SLOT_WAIT_MS, MAX_PARALLEL, FREE_PARALLEL};
     return;
   }
 
@@ -1220,7 +1234,7 @@
     const title = (target && target.info && target.info.title) || site.name + " video";
     const job = {
       choice, target, title, label: choice.label, sizeBytes: choice.sizeBytes, sizeExact: choice.sizeExact,
-      phase: "waiting", ahead: 0, attempts: 0, notBefore: 0, bytesPrepared: 0, fileUrl: null, error: "", retry: false, supporter: false,
+      phase: "waiting", ahead: 0, attempts: 0, slotWaitSince: 0, notBefore: 0, bytesPrepared: 0, fileUrl: null, error: "", retry: false, supporter: false,
     };
     state.jobs.push(job);
     if (state.jobs.length > 12) state.jobs = state.jobs.filter((item, index) => index >= state.jobs.length - 12 || activeJobs().includes(item));
@@ -1229,12 +1243,15 @@
     render();
   }
 
-  // NSFWDL refused the file because this connection already reads 6: put
-  // the job back in line and start it again a little later.
+  // NSFWDL refused the file because this connection already reads its limit
+  // of files at once: put the job back in line until a slot frees (see
+  // SLOT_WAIT_MS).
   function requeue(job, seconds) {
-    if (job.attempts >= 6) return false;
+    const now = Date.now();
+    if (!job.slotWaitSince) job.slotWaitSince = now;
+    if (now - job.slotWaitSince > SLOT_WAIT_MS) return false;
     job.attempts += 1;
-    updateJob(job, {phase: "waiting", notBefore: Date.now() + Math.max(5, seconds || 15) * 1000, id: null, fileUrl: null, bytesPrepared: 0});
+    updateJob(job, {phase: "waiting", notBefore: now + slotRetrySeconds(job.attempts, seconds) * 1000, id: null, fileUrl: null, bytesPrepared: 0});
     return true;
   }
 
