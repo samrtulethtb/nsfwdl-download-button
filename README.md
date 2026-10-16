@@ -83,7 +83,7 @@ list: [supported sites](https://nsfwdl.com/supported-sites).
 
 ## Free and Supporter
 
-Downloads are free, up to 20 a day. More a day (300) and files over 500 MB need a paid
+Downloads are free, up to 30 a day. More a day (300) and files over 500 MB need a paid
 [NSFWDL Supporter key](https://nsfwdl.com/supporter); the panel shows those
 qualities with a 🔒 and never starts them for a free session. This is
 declared as `@antifeature payment`. Have a key? Enter it once in the panel's
