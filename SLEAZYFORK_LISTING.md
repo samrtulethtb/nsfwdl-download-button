@@ -75,8 +75,9 @@ and the MP4 saves itself.
 - **Real qualities, real sizes.** Every option (e.g. 720p · ~110 MB,
   1080p 60 fps · 220 MB) comes from the actual video, exact or estimated
   sizes marked "~". No fake download buttons, ever.
-- **Live progress, measured on the server.** Waiting → preparing with a real
-  percentage → handed to your browser → saved. Not a fake timer bar.
+- **Live progress, measured on the server.** See when each download is waiting,
+  being prepared, or handed to your browser. A real percentage appears during
+  preparation when the server can measure it. Not a fake timer bar.
 - **A button on the player and on thumbnails** (desktop). Point at the video
   you're watching and press ⬇ Download right on it; hover a thumbnail on a
   listing, search or profile page and press ⬇ NSFWDL without opening it.
@@ -86,9 +87,10 @@ and the MP4 saves itself.
 - **Queue as many as you like.** Three run at a time (four with Supporter);
   the rest wait their turn in the panel and start on their own. Close the
   panel and they keep going.
-- **See what you already have.** Saved videos get a green outline and
-  "✓ Downloaded" on their thumbnails — stored only in your userscript
-  manager, and you can clear them or turn the markers off in ⚙ Settings.
+- **See what you already have.** Saved videos get a green outline on their
+  thumbnails, "✓ Downloaded" on the button, and "✓ Again" on the hover
+  button — stored only in your userscript manager, and you can clear them or
+  turn the markers off in ⚙ Settings.
 - **Works in a background tab.** The tab title shows the progress
   ("⬇ 45% · …"), and a notification tells you when a file is saved, or when
   it is ready and needs one tap.
@@ -113,7 +115,7 @@ service useful and sustainable.
 
 - **Free:** up to **30 downloads per day**.
 - **Supporter:** up to **300 downloads per day** and downloads of files over
-  500 MB — up to about 2 GB — subject to the actual implemented rules.
+  500 MB — up to about 2 GB.
 
 Supporter contributions help cover the ongoing costs of operating and
 improving the backend. They also unlock additional capabilities for people
@@ -129,9 +131,9 @@ service running.
   time, files up to about **500 MB**, normal processing. When you're near
   the daily cap, the panel shows how many are left and links to the optional
   [Supporter key](https://nsfwdl.com/supporter) if you want more room.
-- **Supporter — a one-time pass:** 300 downloads a day, 4 at a time in the
-  script, files up to about **2 GB**, and priority when the shared server is
-  busy. No subscription or account is created.
+- **Supporter — a one-time pass (15, 30 or 60 days):** 300 downloads a day,
+  4 at a time in the script, files up to about **2 GB**, and priority when
+  the shared server is busy. No subscription or account is created.
 - Enter a key once in ⚙ Settings → Supporter key and the large qualities
   unlock right in the panel. Only a session token is kept (never the key),
   and it goes only to nsfwdl.com.
