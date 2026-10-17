@@ -15,6 +15,9 @@ copying links, no pop-ups — on desktop and on phones.
 
 **🆕 What's new**
 
+- **2.6.4** — the daily limit now counts **per browser, not per IP address**.
+  If you share a VPN or a mobile network with other people, they no longer
+  use up your free downloads.
 - **2.6.3** — the Free daily limit went from 20 to **30 downloads**: 50% more
   free. Unless you're a serious porn hoarder or a bot, that should cover a
   normal day. 😂
@@ -113,7 +116,7 @@ heavy bulk downloading can consume substantial resources and affect
 availability for everyone else. Reasonable daily limits help keep the
 service useful and sustainable.
 
-- **Free:** up to **30 downloads per day**.
+- **Free:** up to **30 downloads per day** in each browser.
 - **Supporter:** up to **300 downloads per day** and downloads of files over
   500 MB — up to about 2 GB.
 
@@ -167,6 +170,11 @@ behavior can differ from NSFWDL's. Great if you enjoy that control.
   token. Only the token is stored (never the key), and it is sent only to
   nsfwdl.com, in an `X-NSFWDL-Supporter` header. "Remove from this browser"
   ends the session.
+- **A random browser ID for the daily count.** So that people sharing a VPN
+  or mobile-network address don't use up each other's free downloads, the
+  script makes one random value, keeps it in your userscript manager and
+  sends it only to nsfwdl.com, in an `X-NSFWDL-Client` header. It isn't
+  derived from anything about you and isn't linked to an account or your IP.
 - **Local-only storage.** Your settings, how you minimized the button and —
   unless you turn it off — the list of videos you saved stay in your
   userscript manager and are never sent anywhere.

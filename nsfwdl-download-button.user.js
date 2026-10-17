@@ -40,7 +40,7 @@
 // @name:mr      NSFWDL – मोफत व्हिडिओ डाउनलोडर: PornHub, xHamster, XVideos, XNXX एका क्लिकमध्ये HD MP4 मध्ये
 // @name:ne      NSFWDL – निःशुल्क भिडियो डाउनलोडर: PornHub, xHamster, XVideos, XNXX एक क्लिकमा HD MP4 मा
 // @namespace    https://nsfwdl.com/
-// @version      2.6.3
+// @version      2.6.4
 // @description  Free, no sign-up. Download videos without leaving the page: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang, YouPorn, RedTube, Erome, ThisVid, TXXX and 8 more sites. Pick a real quality with its file size and the MP4 goes straight to your downloads. Download buttons on the player and on thumbnails, one-click saving in your preferred quality. Desktop, Android and iPhone. No pop-ups, no redirects.
 // @description:ro  Gratuit, fără cont. Descarcă video fără să părăsești pagina: PornHub (inclusiv Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang, YouPorn, RedTube, Erome, ThisVid, TXXX și încă 8 site-uri. Alegi o calitate reală cu mărimea fișierului, iar MP4-ul ajunge direct în descărcări. Butoane de descărcare pe player și pe miniaturi, salvare dintr-un click în calitatea preferată. Desktop, Android și iPhone. Fără pop-up-uri, fără redirecționări.
 // @description:es  Gratis, sin registro. Descarga vídeos sin salir de la página: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang, YouPorn, RedTube, Erome, ThisVid, TXXX y 8 sitios más. Elige una calidad real con su tamaño y el MP4 llega directo a tus descargas. Botones de descarga en el reproductor y en las miniaturas, guardado en un clic con tu calidad preferida. Escritorio, Android y iPhone. Sin pop-ups ni redirecciones.
@@ -177,10 +177,16 @@
 //   for a session token. The script keeps the token in your userscript
 //   manager and sends it only to nsfwdl.com, in an X-NSFWDL-Supporter
 //   header. "Remove" ends that session; the key itself is never stored.
-// - The script stores only its settings, whether you minimized the button
-//   and, unless you turn it off, a list of the videos you saved with it, to
-//   mark them as downloaded (GM_setValue, never sent anywhere). No
-//   analytics, ads or tracking code.
+// - Free downloads per day count per browser, not per IP address, so people
+//   sharing a VPN or mobile-network address don't use up each other's. For
+//   that the script makes one random value, keeps it in your userscript
+//   manager and sends it only to nsfwdl.com, in an X-NSFWDL-Client header.
+//   It is not linked to you, an account or your IP.
+// - The script stores only its settings, that random value, whether you
+//   minimized the button and, unless you turn it off, a list of the videos
+//   you saved with it, to mark them as downloaded (GM_setValue; only the
+//   random value is ever sent, as above). No analytics, ads or tracking
+//   code.
 // - Without GM_xmlhttpRequest (some managers), the button falls back to
 //   opening the video in NSFWDL in a new tab, as version 1 did.
 (function () {
@@ -502,6 +508,8 @@
       const headers = body ? {"Content-Type": "application/json", Accept: "application/json"} : {Accept: "application/json"};
       const token = supporterToken();
       if (token) headers["X-NSFWDL-Supporter"] = token;
+      const client = clientToken();
+      if (client) headers["X-NSFWDL-Client"] = client;
       send({
         method,
         url: NSFWDL + path,
@@ -532,7 +540,7 @@
     });
   }
 
-  // ── Settings (GM storage; nothing else is stored) ──────────────────────
+  // ── Settings (GM storage) ───────────────────────────────────────────────
   function readValue(key, fallback) {
     try { return typeof GM_getValue === "function" ? GM_getValue(key, fallback) : fallback; } catch (_) { return fallback; }
   }
@@ -553,6 +561,24 @@
 
   const settings = readSettings();
   const inPage = Boolean(gmRequestFunction());
+
+  // ── Browser ID for the Free daily count (random, made once) ────────────
+  // NSFWDL counts Free downloads per browser with it instead of per IP.
+  // Never derived from anything about you; "" if the browser has no
+  // crypto.getRandomValues (the server then counts per IP, as before).
+  function clientToken() {
+    const stored = readValue("client", "");
+    if (typeof stored === "string" && /^[A-Za-z0-9_-]{22,64}$/.test(stored)) return stored;
+    try {
+      const bytes = new Uint8Array(24);
+      crypto.getRandomValues(bytes);
+      const token = btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      writeValue("client", token);
+      return token;
+    } catch (_) {
+      return "";
+    }
+  }
 
   // ── Supporter session (token only; the key itself is never stored) ─────
   // {token, expiresAt (unix seconds)}. The server is the authority: an

@@ -83,7 +83,7 @@ list: [supported sites](https://nsfwdl.com/supported-sites).
 
 ## Free and Supporter
 
-Downloads are free, up to 30 a day. More a day (300) and files over 500 MB need a paid
+Downloads are free, up to 30 a day in each browser. More a day (300) and files over 500 MB need a paid
 [NSFWDL Supporter key](https://nsfwdl.com/supporter); the panel shows those
 qualities with a 🔒 and never starts them for a free session. This is
 declared as `@antifeature payment`. Have a key? Enter it once in the panel's
@@ -105,7 +105,13 @@ declared as `@antifeature payment`. Have a key? Enter it once in the panel's
   a session token. The script stores that token (never the key) in your
   userscript manager and sends it only to nsfwdl.com, in an
   `X-NSFWDL-Supporter` header. "Remove from this browser" ends the session.
-- The script stores only its settings, whether you minimized the button, how
+- Free downloads per day count per browser, not per IP address, so people
+  sharing a VPN or mobile-network address don't use up each other's. For
+  that the script makes one random value, keeps it in your userscript
+  manager and sends it only to nsfwdl.com, in an `X-NSFWDL-Client` header.
+  It is not derived from anything about you and not linked to an account or
+  your IP.
+- Apart from that random value, the script stores only its settings, whether you minimized the button, how
   many files it saved (for one rating reminder) and, unless you turn it off,
   the IDs of the videos you saved (to mark them), with
   `GM_getValue`/`GM_setValue`. None of it is ever sent anywhere.
