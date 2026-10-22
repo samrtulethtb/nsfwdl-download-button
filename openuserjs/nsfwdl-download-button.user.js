@@ -40,7 +40,7 @@
 // @name:mr      NSFWDL – मोफत व्हिडिओ डाउनलोडर: PornHub, xHamster, XVideos, XNXX एका क्लिकमध्ये HD MP4 मध्ये
 // @name:ne      NSFWDL – निःशुल्क भिडियो डाउनलोडर: PornHub, xHamster, XVideos, XNXX एक क्लिकमा HD MP4 मा
 // @namespace    https://nsfwdl.com/
-// @version      2.6.4
+// @version      2.7.0
 // @description  Free, no sign-up. Download videos without leaving the page: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang, YouPorn, RedTube, Erome, ThisVid, TXXX and 8 more sites. Pick a real quality with its file size and the MP4 goes straight to your downloads. Download buttons on the player and on thumbnails, one-click saving in your preferred quality. Desktop, Android and iPhone. No pop-ups, no redirects.
 // @description:ro  Gratuit, fără cont. Descarcă video fără să părăsești pagina: PornHub (inclusiv Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang, YouPorn, RedTube, Erome, ThisVid, TXXX și încă 8 site-uri. Alegi o calitate reală cu mărimea fișierului, iar MP4-ul ajunge direct în descărcări. Butoane de descărcare pe player și pe miniaturi, salvare dintr-un click în calitatea preferată. Desktop, Android și iPhone. Fără pop-up-uri, fără redirecționări.
 // @description:es  Gratis, sin registro. Descarga vídeos sin salir de la página: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang, YouPorn, RedTube, Erome, ThisVid, TXXX y 8 sitios más. Elige una calidad real con su tamaño y el MP4 llega directo a tus descargas. Botones de descarga en el reproductor y en las miniaturas, guardado en un clic con tu calidad preferida. Escritorio, Android y iPhone. Sin pop-ups ni redirecciones.
@@ -170,7 +170,8 @@
 //   its status and hands the finished MP4 to your browser's downloads.
 // - Requests go to nsfwdl.com and its download host dl.nsfwdl.com, nowhere
 //   else. They carry a fixed "/userscript" marker so NSFWDL can count
-//   downloads made from this script. Like any visit, they reach NSFWDL from
+//   downloads made from this script ("/userscript/bulk" for videos queued
+//   with Select videos). Like any visit, they reach NSFWDL from
 //   your IP address.
 // - Supporter key (optional, Settings): userscript managers don't send your
 //   nsfwdl.com cookies, so the key you enter is exchanged once on nsfwdl.com
@@ -195,6 +196,13 @@
   const NSFWDL = "https://nsfwdl.com";
   const DOWNLOAD_HOSTS = Object.freeze(["dl.nsfwdl.com", "nsfwdl.com"]);
   const PAGE_PATH = "/userscript";
+  // Bulk select (2.7.0): videos queued from a listing page. NSFWDL lets
+  // these requests yield when a site is busy, so normal clicks go first.
+  const BULK_PAGE_PATH = "/userscript/bulk";
+  const LISTING_MIN = 4;        // video links on a page before "Select videos" shows
+  const BULK_WAIT_KINDS = Object.freeze(["server_busy", "rate_limited_download_start", "rate_limited_extraction", "rate_limited_upstream"]);
+  const BULK_FAIL_STREAK = 3;   // failures in a row that pause a batch
+  const BULK_REF_MAX_AGE_MS = 10 * 60 * 1000;   // NSFWDL format refs last 15 minutes
   const WIDGET_ID = "nsfwdl-download-widget";
   const THUMB_ID = "nsfwdl-thumb-button";
   const LISTING_URL = "https://sleazyfork.org/en/scripts/597630";
@@ -214,7 +222,7 @@
     ask: "Ask every time", best: "Best available", 1080: "1080p or lower", 720: "720p or lower",
     480: "480p or lower", smallest: "Smallest file",
   });
-  const DEFAULT_SETTINGS = Object.freeze({quality: "ask", position: "right", thumbs: true, marks: true});
+  const DEFAULT_SETTINGS = Object.freeze({quality: "ask", position: "right", thumbs: true, marks: true, bulk: true});
   // At most this many downloads run at once from the script; the rest wait
   // their turn in the panel. NSFWDL lets a Free connection read 3 files at
   // a time, and the site itself may need a slot too.
@@ -460,10 +468,41 @@
     return Math.max(Number(retryAfter) || 0, Math.min(60, 15 * 2 ** Math.max(0, attempt - 1)));
   }
 
+  // ── Bulk downloads (2.7.0) ─────────────────────────────────────────────
+  // NSFWDL sends the limits with the downloads left today, so they change
+  // without a script update; a parallel of 0 switches bulk off.
+  function bulkLimits(status) {
+    const bulk = status && status.bulk;
+    if (!bulk || typeof bulk !== "object") return null;
+    const whole = (value, max) => Math.max(0, Math.min(max, Math.floor(Number(value) || 0)));
+    const left = Number.isInteger(status.downloads_left_today) ? Math.max(0, status.downloads_left_today) : null;
+    return {parallel: whole(bulk.parallel, 8), maxItems: whole(bulk.max_items, 300), gapMs: Math.max(500, whole(bulk.start_gap_ms, 60000)), left};
+  }
+
+  // What a batch takes from the picked videos: never more than the batch
+  // limit or the downloads left today, and nothing already queued.
+  function planBatch(urls, limits, queued) {
+    const fresh = [];
+    for (const url of urls || []) if (!(queued && queued.has(url)) && !fresh.includes(url)) fresh.push(url);
+    let room = limits ? limits.maxItems : 0;
+    if (limits && limits.left !== null && limits.left !== undefined) room = Math.min(room, limits.left);
+    const take = fresh.slice(0, Math.max(0, room));
+    return {take, over: fresh.length - take.length};
+  }
+
+  // Whether the next bulk video may start now. A normal click always keeps
+  // one slot: bulk never takes the last one.
+  function bulkMayStart(o) {
+    if (o.paused || !o.parallel) return false;
+    if (o.runningBulk >= o.parallel || o.running >= o.limit - 1) return false;
+    return o.now - o.lastStart >= o.gapMs;
+  }
+
   // What a job's row says, from the server's measured state only.
   function jobView(job) {
     switch (job.phase) {
       case "waiting":
+        if (job.busyWait) return {mode: "waiting", text: "The site is busy on NSFWDL. Trying again shortly…"};
         if (job.slotWaitSince) return {mode: "waiting", text: "Waiting for one of your downloads to finish…"};
         return {mode: "waiting", text: job.ahead > 0 ? "Waiting its turn · " + job.ahead + " ahead" : "Waiting its turn…"};
       case "starting": return {mode: "waiting", text: "Starting…"};
@@ -487,7 +526,7 @@
   }
 
   if (typeof module === "object" && module.exports) {
-    module.exports = {SITES, FEEDS, xhamsterShortsUrl, currentVideoUrl, siteFor, siteForUrl, mirrorSite, videoKey, isVideoPage, targetUrl, videoLinkTarget, normalizeFormats, pickPreferred, safeDownloadUrl, qualityBadge, jobView, formatDuration, slotRetrySeconds, SLOT_WAIT_MS, MAX_PARALLEL, FREE_PARALLEL};
+    module.exports = {SITES, FEEDS, xhamsterShortsUrl, currentVideoUrl, siteFor, siteForUrl, mirrorSite, videoKey, isVideoPage, targetUrl, videoLinkTarget, normalizeFormats, pickPreferred, safeDownloadUrl, qualityBadge, jobView, formatDuration, slotRetrySeconds, SLOT_WAIT_MS, MAX_PARALLEL, FREE_PARALLEL, bulkLimits, planBatch, bulkMayStart, BULK_PAGE_PATH};
     return;
   }
 
@@ -556,6 +595,7 @@
     if (value.position !== "left") value.position = "right";
     value.thumbs = value.thumbs !== false;
     value.marks = value.marks !== false;
+    value.bulk = value.bulk !== false;
     return value;
   }
 
@@ -698,8 +738,11 @@
   let titleOwned = false;
   function updateTitle() {
     const running = state.jobs.filter((job) => !FINISHED.includes(job.phase));
+    const counts = bulkCounts();
     let label = "";
-    if (running.length === 1) {
+    if (counts && counts.active) {
+      label = "⬇ " + counts.done + "/" + counts.total;
+    } else if (running.length === 1) {
       const view = jobView(running[0]);
       label = view.mode === "measured" ? "⬇ " + Math.floor(view.fraction * 100) + "%" : "⬇ …";
     } else if (running.length > 1) {
@@ -787,6 +830,14 @@
     .rate { margin-top: 10px; padding: 9px 11px; border-radius: 12px; background: rgba(167,139,250,.12); font-size: 12px; color: #ddd6fe; }
     .rate a { color: #f9a8d4; font-weight: 800; }
     .sponsor-slot[hidden] { display: none; }
+    .bulk { padding: 10px 12px; border: 1px solid rgba(196,181,253,.22); border-radius: 12px; background: rgba(46,26,77,.35); }
+    .bulk + .bulk, .bulk + h4 { margin-top: 14px; }
+    .bulk h4 { margin-bottom: 6px; }
+    .bulk .job { padding: 8px 0 2px; }
+    .bulk details { margin-top: 8px; font-size: 12px; color: #ddd6fe; }
+    .bulk summary { cursor: pointer; }
+    .count { margin: 10px 0 0; font-size: 13px; color: #fff; }
+    .btn[disabled] { opacity: .45; cursor: not-allowed; filter: none; transform: none; }
     @keyframes slide { 0% { transform: translateX(-105%); } 100% { transform: translateX(285%); } }
     @keyframes stripes { to { background-position: 22.6px 0; } }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -867,6 +918,25 @@
     primaryButton: null,
     supporterMessage: "",  // last Supporter key result, shown in Settings
     dailyLeft: null,       // Free downloads left today, once NSFWDL says few are left
+    listing: false,        // this page lists enough videos for "Select videos"
+    bulk: {
+      selecting: false,    // thumbnails are being picked
+      picked: new Set(),   // picked video URLs
+      links: [],           // [{key, url, media, title, skip}] on the page now
+      config: null,        // bulkLimits() from NSFWDL
+      configAt: 0,
+      loading: false,
+      error: "",
+      paused: false,
+      pauseReason: "",     // "user" | "stalled" | "failures" | "daily"
+      notice: "",
+      lastStart: 0,
+      holdUntil: 0,        // a busy answer holds the whole batch until then
+      failStreak: 0,
+      announced: false,
+      preset: settings.quality === "ask" ? "best" : settings.quality,
+      skipSaved: true,
+    },
   };
 
   const FINISHED = ["saved", "handed", "failed"];
@@ -893,7 +963,17 @@
     return state.jobs.filter((job) => !FINISHED.includes(job.phase));
   }
 
+  // {done, total, active} for the bulk batch, or null without one.
+  function bulkCounts() {
+    const jobs = state.jobs.filter((job) => job.bulk);
+    if (!jobs.length) return null;
+    const done = jobs.filter((job) => FINISHED.includes(job.phase)).length;
+    return {done, total: jobs.length, active: done < jobs.length};
+  }
+
   function dockLabel() {
+    const counts = bulkCounts();
+    if (counts && counts.active) return (state.bulk.paused ? "⏸ " : "⬇ ") + counts.done + "/" + counts.total;
     const active = activeJobs();
     if (active.length > 1) return "⬇ " + active.length + " running";
     if (active.length === 1) {
@@ -917,13 +997,29 @@
     dock.removeAttribute("style");
     const before = state.pageUrl && wasDownloaded(state.pageUrl);
     const brand = el("div", {class: "brand"}, [el("strong", {text: "NSFWDL"}), el("small", {text: before ? "✓ Downloaded" : site.name, title: before ? "You saved this video before with NSFWDL" : null})]);
-    if (inPage) {
+    const selectOnly = inPage && !state.pageUrl && !state.jobs.length && state.listing;
+    if (selectOnly) {
+      // A listing page with nothing running: the dock's only job is bulk select.
+      state.primaryButton = null;
+      dock.append(brand, el("button", {
+        class: "btn btn-primary", type: "button", "aria-haspopup": "dialog", title: "Pick videos on this page and download them in one go",
+        text: state.bulk.selecting ? "☑ " + state.bulk.picked.size + " selected" : "☑ Select videos",
+        onclick: () => (state.bulk.selecting && state.open ? closePanel() : startSelecting()),
+      }));
+    } else if (inPage) {
       state.primaryButton = el("button", {
         class: "btn btn-primary", type: "button", "aria-expanded": String(state.open), "aria-haspopup": "dialog",
         title: "Download this " + site.name + " video (Alt+Shift+D)", text: dockLabel(),
         onclick: () => (state.open ? closePanel() : dockAction()),
       });
       dock.append(brand, state.primaryButton);
+      if (state.listing) {
+        dock.append(el("button", {
+          class: "btn btn-ghost", type: "button", title: "Select videos on this page (bulk download)", "aria-label": "Select videos on this page",
+          text: state.bulk.selecting ? "☑ " + state.bulk.picked.size : "☑",
+          onclick: () => (state.bulk.selecting && state.open ? closePanel() : startSelecting()),
+        }));
+      }
     } else {
       dock.append(brand, externalLink(targetUrl(site, state.pageUrl || location.href), "⬇ Download", "btn btn-primary"));
     }
@@ -948,7 +1044,7 @@
     return el("div", {class: "foot"}, [
       el("span", {text: "No pop-ups. No redirects."}),
       el("span", {class: "links"}, [
-        el("button", {class: "linkbtn", type: "button", text: "⚙ Settings", onclick: () => { state.view = state.view === "settings" ? "pick" : "settings"; state.supporterMessage = ""; render(); }}),
+        el("button", {class: "linkbtn", type: "button", text: "⚙ Settings", onclick: () => { state.view = state.view === "settings" ? (state.bulk.selecting ? "bulk" : "pick") : "settings"; state.supporterMessage = ""; render(); }}),
         externalLink(targetUrl(site, url || state.pageUrl || location.href), "Open on NSFWDL ↗"),
       ]),
     ]);
@@ -967,6 +1063,7 @@
   }
 
   function closePanel() {
+    if (state.bulk.selecting) stopSelecting(true);
     state.open = false;
     panel.hidden = true;
     renderDock();
@@ -1068,7 +1165,7 @@
       again.referrerPolicy = "no-referrer";
       actions.append(again);
     }
-    if (job.phase === "failed" && job.retry) actions.append(el("button", {class: "btn btn-primary", type: "button", text: "Try again", onclick: () => { removeJob(job); startJob(job.choice, job.target); }}));
+    if (job.phase === "failed" && job.retry) actions.append(el("button", {class: "btn btn-primary", type: "button", text: "Try again", onclick: () => (job.bulk ? retryBulk([job]) : (removeJob(job), startJob(job.choice, job.target)))}));
     if (job.phase === "failed" && job.supporter) actions.append(externalLink(NSFWDL + "/supporter?from=" + (job.supporterFrom || "userscript"), "Supporter options", "btn btn-ghost"));
     if (actions.children.length) row.append(actions);
     return row;
@@ -1076,7 +1173,8 @@
 
   function jobsSection() {
     if (!state.jobs.length) return [];
-    const section = el("div", {class: "section"}, [el("h4", {text: "Your downloads"}), ...state.jobs.slice().reverse().map(jobRow)]);
+    const single = state.jobs.filter((job) => !job.bulk);
+    const section = el("div", {class: "section"}, [bulkSummary(), single.length ? el("h4", {text: "Your downloads"}) : null, ...single.slice().reverse().map(jobRow)]);
     if (hasUnsavedJobs()) section.append(el("p", {class: "note keep-open", text: "Stay on this page until your files start saving. You can open other videos in a new tab."}));
     if (state.dailyLeft !== null && state.dailyLeft !== undefined && !supporterActive()) {
       section.append(el("p", {class: "note"}, [
@@ -1105,6 +1203,7 @@
       [["right", "Bottom right"], ["left", "Bottom left"]].map(([value, text]) => el("option", {value, text, selected: settings.position === value})));
     const thumbs = el("input", {type: "checkbox", checked: settings.thumbs, onchange: (event) => { settings.thumbs = event.target.checked; saveSettings(); }});
     const marks = el("input", {type: "checkbox", checked: settings.marks, onchange: (event) => { settings.marks = event.target.checked; saveSettings(); marksSeen = new WeakMap(); scheduleMarks(); renderDock(); }});
+    const bulk = el("input", {type: "checkbox", checked: settings.bulk, onchange: (event) => { settings.bulk = event.target.checked; saveSettings(); listingCheckedAt = 0; lastHref = ""; sync(); }});
     const remembered = Object.keys(history).length;
     return [
       header("Settings", "Stored only in your userscript manager"),
@@ -1113,6 +1212,7 @@
         el("label", {class: "setting"}, ["Button position", position]),
         el("label", {class: "setting check"}, [thumbs, "Download buttons on videos and thumbnails (desktop)"]),
         el("label", {class: "setting check"}, [marks, "Mark videos I already downloaded"]),
+        el("label", {class: "setting check"}, [bulk, "\"Select videos\" button on listing pages (bulk download, desktop)"]),
         el("p", {class: "note"}, [
           remembered ? remembered + " video" + (remembered === 1 ? "" : "s") + " remembered, only in your userscript manager. " : "The list stays only in your userscript manager. ",
           remembered ? el("button", {class: "linkbtn", type: "button", text: "Clear the list", onclick: () => { clearHistory(); renderDock(); render(); }}) : null,
@@ -1178,7 +1278,7 @@
   }
 
   function saveSettings() {
-    writeValue("settings", {quality: settings.quality, position: settings.position, thumbs: settings.thumbs, marks: settings.marks});
+    writeValue("settings", {quality: settings.quality, position: settings.position, thumbs: settings.thumbs, marks: settings.marks, bulk: settings.bulk});
   }
 
   function applyPosition() {
@@ -1195,9 +1295,13 @@
     const keepScroll = panel.querySelector(".body") ? panel.querySelector(".body").scrollTop : 0;
     if (state.view === "settings") {
       panel.replaceChildren(...settingsView());
+    } else if (state.view === "bulk") {
+      panel.replaceChildren(...bulkView());
+      const body = panel.querySelector(".body");
+      if (body) body.scrollTop = keepScroll;
     } else {
       const info = (state.target && state.target.info) || {};
-      const title = info.title || (state.target && state.target.url !== state.pageUrl ? "Video from this page" : site.name + " video");
+      const title = info.title || (state.target && state.target.url !== state.pageUrl ? "Video from this page" : !state.target && !state.pageUrl ? "Your downloads" : site.name + " video");
       const sub = [site.name, formatDuration(info.duration)].filter(Boolean).join(" · ");
       const body = el("div", {class: "body"}, [...pickSection(), ...jobsSection()]);
       panel.replaceChildren(header(title, sub), body, footer(state.target && state.target.url));
@@ -1218,15 +1322,23 @@
       writeValue("savedCount", (Number(readValue("savedCount", 0)) || 0) + 1);
     }
     if (changes.phase && changes.phase !== before) {
+      // A batch notifies once when it pauses or ends, not for every video.
       if (changes.phase === "saved" || changes.phase === "handed") {
         rememberDownload(job.target && job.target.url);
         renderDock();
-        notify((changes.phase === "saved" ? "Saved: " : "Handed to your browser: ") + job.title);
+        if (!job.bulk) notify((changes.phase === "saved" ? "Saved: " : "Handed to your browser: ") + job.title);
       } else if (changes.phase === "stalled") {
-        notify("Your file is ready. Come back to the tab to save it: " + job.title);
+        if (job.bulk) {
+          // The browser held the file back (Chrome asks once per site before
+          // several downloads): stop, or NSFWDL would prepare files nobody gets.
+          pauseBulk("stalled", "Your browser held a file back instead of saving it. Allow multiple downloads for this site (the icon at the right of the address bar), and the batch continues.");
+        } else {
+          notify("Your file is ready. Come back to the tab to save it: " + job.title);
+        }
       } else if (changes.phase === "failed") {
-        notify("Download failed: " + job.title);
+        if (!job.bulk) notify("Download failed: " + job.title);
       }
+      if (job.bulk) bulkProgress(job, changes.phase);
       // A slot may have freed up.
       if (!RUNNING.includes(changes.phase)) pump();
     }
@@ -1237,20 +1349,39 @@
   let pumpTimer = 0;
   function pump() {
     clearTimeout(pumpTimer);
+    const limit = supporterActive() ? MAX_PARALLEL : FREE_PARALLEL;
     let running = state.jobs.filter((job) => RUNNING.includes(job.phase)).length;
+    let runningBulk = state.jobs.filter((job) => job.bulk && RUNNING.includes(job.phase)).length;
     let nextWake = 0;
+    const wakeAt = (at) => { nextWake = nextWake ? Math.min(nextWake, at) : at; };
+    // Normal clicks first, then the bulk batch in what room is left.
     for (const job of state.jobs) {
-      if (job.phase !== "waiting") continue;
-      if (job.notBefore && job.notBefore > Date.now()) {
-        nextWake = nextWake ? Math.min(nextWake, job.notBefore) : job.notBefore;
-        continue;
-      }
-      if (running >= (supporterActive() ? MAX_PARALLEL : FREE_PARALLEL)) break;
+      if (job.bulk || job.phase !== "waiting") continue;
+      if (job.notBefore && job.notBefore > Date.now()) { wakeAt(job.notBefore); continue; }
+      if (running >= limit) break;
       running += 1;
       runJob(job);
     }
+    const b = state.bulk;
+    const parallel = b.config ? b.config.parallel : 0;
+    const gapMs = b.config ? b.config.gapMs : 2000;
+    const held = b.holdUntil > Date.now();
+    if (held && state.jobs.some((job) => job.bulk && job.phase === "waiting")) wakeAt(b.holdUntil);
+    for (const job of state.jobs) {
+      if (held || !job.bulk || job.phase !== "waiting" || b.paused) continue;
+      if (job.notBefore && job.notBefore > Date.now()) { wakeAt(job.notBefore); continue; }
+      const now = Date.now();
+      if (!bulkMayStart({paused: b.paused, parallel, runningBulk, running, limit, now, lastStart: b.lastStart, gapMs})) {
+        if (now - b.lastStart < gapMs && runningBulk < parallel && running < limit - 1) wakeAt(b.lastStart + gapMs);
+        break;
+      }
+      running += 1;
+      runningBulk += 1;
+      b.lastStart = now;
+      runJob(job);
+    }
     let ahead = 0;
-    for (const job of state.jobs) if (job.phase === "waiting") job.ahead = ahead++;
+    for (const job of state.jobs) if (job.phase === "waiting" && !job.bulk) job.ahead = ahead++;
     if (nextWake) pumpTimer = setTimeout(pump, Math.max(500, nextWake - Date.now()));
   }
 
@@ -1271,7 +1402,11 @@
       phase: "waiting", ahead: 0, attempts: 0, slotWaitSince: 0, notBefore: 0, bytesPrepared: 0, fileUrl: null, error: "", retry: false, supporter: false,
     };
     state.jobs.push(job);
-    if (state.jobs.length > 12) state.jobs = state.jobs.filter((item, index) => index >= state.jobs.length - 12 || activeJobs().includes(item));
+    const single = state.jobs.filter((item) => !item.bulk);
+    if (single.length > 12) {
+      const keep = new Set(single.slice(-12));
+      state.jobs = state.jobs.filter((item) => item.bulk || keep.has(item) || activeJobs().includes(item));
+    }
     if (!state.open) { state.open = true; renderDock(); }
     pump();
     render();
@@ -1289,12 +1424,30 @@
     return true;
   }
 
+  // A bulk video has no format yet: list its formats like the panel does
+  // and take the batch's quality preset.
+  async function resolveBulkChoice(job) {
+    await checkSupporter();
+    const url = job.target.url;
+    const route = await api("POST", "/api/route", {url, page_path: BULK_PAGE_PATH}, 20000);
+    const payload = {url, mode: route.mode || "validated", device: deviceClass(), page_path: BULK_PAGE_PATH};
+    if (route.source) payload.expected_source = route.source;
+    const data = await api("POST", "/api/extract", payload, 60000);
+    const choice = pickPreferred(normalizeFormats(data, supporterActive()), state.bulk.preset);
+    if (!choice) throw Object.assign(new Error("No downloadable format was found for this video."), {transient: false});
+    const title = typeof data.title === "string" && data.title.trim() ? data.title.trim().slice(0, 200) : job.title;
+    Object.assign(job, {choice, choiceAt: Date.now(), title, label: choice.label, sizeBytes: choice.sizeBytes, sizeExact: choice.sizeExact});
+  }
+
   async function runJob(job) {
     job.phase = "starting";   // holds its slot from this moment
     job.notBefore = 0;
+    job.busyWait = false;
     render();
     try {
-      const started = await api("POST", "/api/download", {format_ref: job.choice.ref, page_path: PAGE_PATH}, 30000);
+      if (job.bulk && job.choice && Date.now() - (job.choiceAt || 0) > BULK_REF_MAX_AGE_MS) job.choice = null;
+      if (!job.choice) await resolveBulkChoice(job);
+      const started = await api("POST", "/api/download", {format_ref: job.choice.ref, page_path: job.bulk ? BULK_PAGE_PATH : PAGE_PATH}, 30000);
       const fileUrl = safeDownloadUrl(started.download_url);
       const id = /^[A-Za-z0-9_-]{20,128}$/.test(String(started.download_id || "")) ? started.download_id : null;
       if (!fileUrl || !id) throw Object.assign(new Error("NSFWDL returned an unexpected answer. Try again."), {transient: true});
@@ -1312,6 +1465,25 @@
       await followHandoff(job);
     } catch (error) {
       if (error && error.kind === "rate_limited_active_downloads" && requeue(job, error.retryAfter)) return;
+      if (job.bulk && error) {
+        // The site or NSFWDL is busy: wait and try again, it is not a failure.
+        if (BULK_WAIT_KINDS.includes(error.kind)) {
+          job.busyWait = true;
+          if (requeue(job, error.retryAfter)) {
+            // The rest of the batch waits too, instead of each asking again.
+            state.bulk.holdUntil = Math.max(state.bulk.holdUntil, job.notBefore);
+            pump();
+            return;
+          }
+          job.busyWait = false;
+        }
+        if (error.kind === "expired_format_ref" && !job.refRetried) {
+          job.refRetried = true;
+          job.choice = null;
+          if (requeue(job, 1)) return;
+        }
+        if (error.kind === "rate_limited_daily_downloads") pauseBulk("daily", "Today's downloads are used up, so the rest of this batch can't start today.");
+      }
       updateJob(job, {
         phase: "failed",
         error: (error && error.message) || "This download failed.",
@@ -1319,7 +1491,7 @@
         supporter: Boolean(error && error.supporter),
         supporterFrom: error && error.kind === "rate_limited_daily_downloads" ? "userscript-cap" : "userscript-size",
       });
-      if (!state.open) { state.open = true; renderDock(); render(); }
+      if (!state.open && !job.bulk) { state.open = true; renderDock(); render(); }
     }
   }
 
@@ -1385,6 +1557,312 @@
       }
     }
     updateJob(job, {phase: "handed"});
+  }
+
+  // ── Bulk select and queue (2.7.0) ──────────────────────────────────────
+  // "Select videos" marks every video thumbnail on the page; clicks pick
+  // them instead of opening them. The batch then runs through the same jobs
+  // as single downloads, a few at a time (NSFWDL's limits), with the site's
+  // thumbnails and links read only from this page.
+  const PICK_STYLE_ID = "nsfwdl-pick-style";
+  let pickObserver = null;
+  let pickTimer = 0;
+  let listingCheckedAt = 0;
+
+  function linkTitle(anchor) {
+    const img = anchor.querySelector("img[alt]");
+    const text = anchor.getAttribute("title") || (img && img.getAttribute("alt")) || anchor.textContent || "";
+    return text.replace(/\s+/g, " ").trim().slice(0, 140);
+  }
+
+  // One entry per video on the page, in page order. Without media it only
+  // reads links (cheap, no layout); with media it keeps the ones whose
+  // thumbnail is big enough to click.
+  function pageVideoLinks(withMedia) {
+    const byKey = new Map();
+    for (const anchor of document.querySelectorAll("a[href]")) {
+      if (host.contains(anchor)) continue;
+      const url = videoLinkTarget(site, anchor.getAttribute("href"), location.href);
+      if (!url || url === state.pageUrl) continue;
+      const key = videoKey(site, url) || url;
+      let entry = byKey.get(key);
+      if (!entry) { entry = {key, url, media: null, title: "", skip: false}; byKey.set(key, entry); }
+      if (withMedia && !entry.media) entry.media = biggestMedia(anchor);
+      if (!entry.title) entry.title = linkTitle(anchor);
+    }
+    const list = Array.from(byKey.values());
+    return withMedia ? list.filter((entry) => entry.media) : list;
+  }
+
+  function checkListing() {
+    if (Date.now() - listingCheckedAt < 3000) return state.listing;
+    listingCheckedAt = Date.now();
+    state.listing = Boolean(inPage && settings.bulk && canHover) && pageVideoLinks(false).length >= LISTING_MIN;
+    return state.listing;
+  }
+
+  function ensurePickStyle() {
+    if (document.getElementById(PICK_STYLE_ID) || !document.head) return;
+    document.head.append(el("style", {id: PICK_STYLE_ID, text:
+      "[data-nsfwdl-pick]{cursor:copy !important}" +
+      "[data-nsfwdl-pick=\"0\"]{outline:3px dashed rgba(167,139,250,.95) !important;outline-offset:-3px !important}" +
+      "[data-nsfwdl-pick=\"1\"]{outline:5px solid #fa2abf !important;outline-offset:-5px !important;filter:brightness(.7) !important}" +
+      "[data-nsfwdl-pick=\"skip\"]{opacity:.4 !important;cursor:not-allowed !important}"}));
+  }
+
+  function refreshPicks() {
+    const b = state.bulk;
+    if (!b.selecting) return;
+    ensurePickStyle();
+    b.links = pageVideoLinks(true);
+    const live = new Set();
+    for (const entry of b.links) {
+      live.add(entry.media);
+      entry.skip = b.skipSaved && wasDownloaded(entry.url);
+      if (entry.skip) b.picked.delete(entry.url);
+      const value = entry.skip ? "skip" : b.picked.has(entry.url) ? "1" : "0";
+      if (entry.media.getAttribute("data-nsfwdl-pick") !== value) entry.media.setAttribute("data-nsfwdl-pick", value);
+    }
+    for (const node of document.querySelectorAll("[data-nsfwdl-pick]")) if (!live.has(node)) node.removeAttribute("data-nsfwdl-pick");
+  }
+
+  function schedulePicks() {
+    if (pickTimer) return;
+    pickTimer = setTimeout(() => { pickTimer = 0; refreshPicks(); render(); renderDock(); }, 700);
+  }
+
+  async function startSelecting() {
+    const b = state.bulk;
+    hideThumb();
+    b.selecting = true;
+    b.error = "";
+    state.view = "bulk";
+    refreshPicks();
+    if (!pickObserver && typeof MutationObserver === "function" && document.body) {
+      // Listings load more thumbnails as you scroll.
+      pickObserver = new MutationObserver(schedulePicks);
+      pickObserver.observe(document.body, {childList: true, subtree: true});
+    }
+    openPanel();
+    if (b.config && Date.now() - b.configAt < 60000) return;
+    b.loading = true;
+    render();
+    try {
+      await checkSupporter();
+      b.config = bulkLimits(await api("GET", "/api/supporter/status", null, 15000));
+      b.configAt = Date.now();
+    } catch (error) {
+      b.error = (error && error.message) || "Can't reach NSFWDL. Check your connection.";
+    }
+    b.loading = false;
+    render();
+    renderDock();
+  }
+
+  // quiet: called from closePanel, which renders the dock itself.
+  function stopSelecting(quiet) {
+    const b = state.bulk;
+    b.selecting = false;
+    b.picked.clear();
+    b.links = [];
+    if (pickObserver) { pickObserver.disconnect(); pickObserver = null; }
+    for (const node of document.querySelectorAll("[data-nsfwdl-pick]")) node.removeAttribute("data-nsfwdl-pick");
+    if (state.view === "bulk") state.view = "pick";
+    if (!quiet) { render(); renderDock(); }
+  }
+
+  function togglePick(url) {
+    const picked = state.bulk.picked;
+    if (picked.has(url)) picked.delete(url); else picked.add(url);
+    refreshPicks();
+    render();
+    renderDock();
+  }
+
+  // While selecting, a click on a video link picks it instead of opening it.
+  document.addEventListener("click", (event) => {
+    const b = state.bulk;
+    if (!b.selecting) return;
+    const anchor = event.target && event.target.closest ? event.target.closest("a[href]") : null;
+    if (!anchor || host.contains(anchor)) return;
+    const url = videoLinkTarget(site, anchor.getAttribute("href"), location.href);
+    if (!url) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    const key = videoKey(site, url) || url;
+    const entry = b.links.find((item) => item.key === key);
+    if (entry && !entry.skip) togglePick(entry.url);
+  }, true);
+
+  function queuedBulkUrls() {
+    return new Set(state.jobs.filter((job) => job.bulk && !FINISHED.includes(job.phase)).map((job) => job.target.url));
+  }
+
+  function startBulk(urls) {
+    const b = state.bulk;
+    const titles = new Map(b.links.map((entry) => [entry.url, entry.title]));
+    for (const url of urls) {
+      state.jobs.push({
+        bulk: true, choice: null, choiceAt: 0, target: {url}, title: titles.get(url) || "Video from this page", label: "", sizeBytes: null, sizeExact: false,
+        phase: "waiting", ahead: 0, attempts: 0, slotWaitSince: 0, notBefore: 0, bytesPrepared: 0, fileUrl: null, error: "", retry: false, supporter: false,
+      });
+    }
+    if (b.config && b.config.left !== null) b.config.left = Math.max(0, b.config.left - urls.length);
+    Object.assign(b, {paused: false, pauseReason: "", notice: "", failStreak: 0, announced: false});
+    stopSelecting(true);
+    state.view = "pick";
+    state.open = true;
+    renderDock();
+    pump();
+    render();
+  }
+
+  function pauseBulk(reason, text) {
+    const b = state.bulk;
+    if (b.paused && b.pauseReason === reason) return;
+    Object.assign(b, {paused: true, pauseReason: reason, notice: text});
+    if (reason !== "user") notify(text);
+    renderDock();
+    render();
+  }
+
+  function resumeBulk() {
+    Object.assign(state.bulk, {paused: false, pauseReason: "", notice: "", failStreak: 0});
+    pump();
+    renderDock();
+    render();
+  }
+
+  function cancelBulk() {
+    state.jobs = state.jobs.filter((job) => !(job.bulk && job.phase === "waiting"));
+    Object.assign(state.bulk, {paused: false, pauseReason: "", notice: ""});
+    renderDock();
+    render();
+  }
+
+  function retryBulk(jobs) {
+    for (const job of jobs) {
+      Object.assign(job, {phase: "waiting", choice: null, choiceAt: 0, attempts: 0, slotWaitSince: 0, notBefore: 0, bytesPrepared: 0, fileUrl: null, id: null, error: "", retry: false, supporter: false, busyWait: false, refRetried: false});
+    }
+    Object.assign(state.bulk, {announced: false});
+    resumeBulk();
+  }
+
+  function clearFinishedBulk() {
+    state.jobs = state.jobs.filter((job) => !(job.bulk && FINISHED.includes(job.phase)));
+    renderDock();
+    render();
+  }
+
+  function bulkProgress(job, phase) {
+    const b = state.bulk;
+    if (phase === "saved" || phase === "handed" || phase === "receiving") {
+      b.failStreak = 0;
+      // The visitor allowed the downloads: carry on by itself.
+      if (b.pauseReason === "stalled" && phase !== "handed") resumeBulk();
+    } else if (phase === "failed") {
+      b.failStreak += 1;
+      if (b.failStreak >= BULK_FAIL_STREAK && !b.paused) {
+        pauseBulk("failures", BULK_FAIL_STREAK + " videos in a row failed, so the batch is paused to go easy on the site. Resume to continue, or cancel the rest.");
+      }
+    }
+    const counts = bulkCounts();
+    if (counts && !counts.active && !b.announced) {
+      b.announced = true;
+      const saved = state.jobs.filter((item) => item.bulk && (item.phase === "saved" || item.phase === "handed")).length;
+      notify("Bulk download finished: " + saved + " of " + counts.total + " saved.");
+    }
+  }
+
+  function bulkSummary() {
+    const jobs = state.jobs.filter((job) => job.bulk);
+    if (!jobs.length) return null;
+    const b = state.bulk;
+    const saved = jobs.filter((job) => job.phase === "saved" || job.phase === "handed").length;
+    const failed = jobs.filter((job) => job.phase === "failed");
+    const running = jobs.filter((job) => RUNNING.includes(job.phase) || job.phase === "stalled");
+    const waiting = jobs.filter((job) => job.phase === "waiting").length;
+    const finished = saved + failed.length;
+    const bar = el("div", {class: "bar " + (finished === jobs.length ? "done" : "measured")});
+    bar.style.width = ((finished / jobs.length) * 100).toFixed(1) + "%";
+    const track = el("div", {class: "track", role: "progressbar", "aria-label": "Bulk download progress", "aria-valuemin": "0", "aria-valuemax": String(jobs.length), "aria-valuenow": String(finished)}, [bar]);
+    const parts = [saved + " saved", running.length ? running.length + " downloading" : "", waiting ? waiting + " waiting" : "", failed.length ? failed.length + " failed" : ""].filter(Boolean).join(" · ");
+    const box = el("div", {class: "bulk"}, [
+      el("h4", {text: (b.paused && (waiting || running.length) ? "Bulk download · paused · " : "Bulk download · ") + finished + " of " + jobs.length}),
+      track,
+      el("p", {class: "line", "aria-live": "polite", text: parts}),
+    ]);
+    if (b.notice) box.append(el("p", {class: "note", role: "status", text: b.notice}));
+    else if (!b.paused && jobs.some((job) => job.phase === "waiting" && job.busyWait)) {
+      box.append(el("p", {class: "note", role: "status", text: "The site is busy on NSFWDL, so the batch slows down and goes on by itself. Single downloads go first."}));
+    }
+    const actions = el("div", {class: "row"});
+    if (waiting || running.length) {
+      actions.append(b.paused
+        ? el("button", {class: "btn btn-primary", type: "button", text: "Resume", onclick: resumeBulk})
+        : el("button", {class: "btn btn-ghost", type: "button", text: "Pause", onclick: () => pauseBulk("user", "Paused. Videos already downloading finish; the rest wait.")}));
+    }
+    if (waiting) actions.append(el("button", {class: "btn btn-ghost", type: "button", text: "Cancel the rest", onclick: cancelBulk}));
+    const retryable = failed.filter((job) => job.retry);
+    if (retryable.length) actions.append(el("button", {class: "btn btn-ghost", type: "button", text: "Retry failed (" + retryable.length + ")", onclick: () => retryBulk(retryable)}));
+    if (!waiting && !running.length) actions.append(el("button", {class: "btn btn-ghost", type: "button", text: "Clear", onclick: clearFinishedBulk}));
+    box.append(actions);
+    box.append(...running.map(jobRow));
+    if (failed.length) box.append(el("details", {}, [el("summary", {text: "Failed videos (" + failed.length + ")"}), ...failed.map(jobRow)]));
+    return box;
+  }
+
+  function bulkView() {
+    const b = state.bulk;
+    const cfg = b.config;
+    const body = el("div", {class: "body"});
+    if (b.loading) {
+      body.append(el("div", {class: "section"}, [el("div", {class: "spinner", "aria-hidden": "true"}), el("p", {class: "center", text: "Checking your limits on NSFWDL…"})]));
+    } else if (b.error) {
+      body.append(el("div", {class: "section"}, [el("div", {class: "error", role: "alert", text: b.error}), el("div", {class: "row"}, [el("button", {class: "btn btn-primary", type: "button", text: "Try again", onclick: () => { b.configAt = 0; b.config = null; startSelecting(); }})])]));
+    } else if (!cfg || !cfg.parallel || !cfg.maxItems) {
+      body.append(el("p", {class: "note", text: "Bulk download is switched off on NSFWDL right now. Single downloads work as usual."}));
+    } else {
+      const selectable = b.links.filter((entry) => !entry.skip);
+      const skipped = b.links.length - selectable.length;
+      const order = b.links.map((entry) => entry.url).filter((url) => b.picked.has(url));
+      for (const url of b.picked) if (!order.includes(url)) order.push(url);
+      const plan = planBatch(order, cfg, queuedBulkUrls());
+      const quality = el("select", {"aria-label": "Quality for these videos", onchange: (event) => { b.preset = event.target.value; }},
+        QUALITY_CHOICES.filter((value) => value !== "ask").map((value) => el("option", {value, text: QUALITY_LABELS[value], selected: b.preset === value})));
+      const section = el("div", {class: "section"}, [
+        el("p", {class: "note", text: "Click thumbnails on the page to add or remove them."}),
+        el("div", {class: "row"}, [
+          el("button", {class: "btn btn-ghost", type: "button", text: "Select all on this page (" + selectable.length + ")", disabled: !selectable.length, onclick: () => { for (const entry of selectable) b.picked.add(entry.url); refreshPicks(); render(); renderDock(); }}),
+          b.picked.size ? el("button", {class: "btn btn-ghost", type: "button", text: "Clear", onclick: () => { b.picked.clear(); refreshPicks(); render(); renderDock(); }}) : null,
+        ]),
+      ]);
+      if (settings.marks) {
+        const skip = el("input", {type: "checkbox", checked: b.skipSaved, onchange: (event) => { b.skipSaved = event.target.checked; refreshPicks(); render(); }});
+        section.append(el("label", {class: "setting check", style: "margin:12px 0 0"}, [skip, "Skip videos I downloaded before" + (skipped ? " (" + skipped + ")" : "")]));
+      }
+      section.append(el("label", {class: "setting", style: "margin:12px 0 0"}, ["Quality for these videos", quality]));
+      section.append(el("p", {class: "count", text: b.picked.size + " selected" + (cfg.left !== null ? " · " + cfg.left + " downloads left today" : "")}));
+      if (plan.over > 0) {
+        const byDay = cfg.left !== null && cfg.left < cfg.maxItems;
+        section.append(el("p", {class: "note", text: "Only the first " + plan.take.length + " go in this batch: " + (byDay ? "that's what is left of today's downloads." : "a batch holds up to " + cfg.maxItems + " videos.")}));
+      }
+      if (!supporterActive()) {
+        section.append(el("p", {class: "note"}, [
+          "Free: " + cfg.maxItems + " videos per batch, one at a time. A ",
+          externalLink(NSFWDL + "/supporter?from=userscript-bulk", "Supporter key"), " (from $3) queues up to 100, 3 at a time, and 300 a day.",
+        ]));
+      }
+      section.append(el("div", {class: "row"}, [el("button", {
+        class: "btn btn-primary", type: "button", disabled: !plan.take.length,
+        text: plan.take.length ? "⬇ Download " + plan.take.length + " video" + (plan.take.length === 1 ? "" : "s") : "⬇ Download",
+        onclick: () => { if (plan.take.length) startBulk(plan.take); },
+      })]));
+      section.append(el("p", {class: "note", text: "Your browser may ask once to allow several downloads from this site: choose Allow. Keep this tab open while the batch runs."}));
+      body.append(section);
+    }
+    return [header("Select videos", site.name + " · bulk download"), body, footer()];
   }
 
   // ── Buttons on thumbnails and the player (desktop, hover only) ─────────
@@ -1456,7 +1934,7 @@
   const canHover = window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
   if (inPage && canHover) {
     document.addEventListener("mouseover", (event) => {
-      if (!settings.thumbs) return;
+      if (!settings.thumbs || state.bulk.selecting) return;
       if (event.target === thumbHost) { clearTimeout(thumbHideTimer); return; }
       const found = thumbnailFor(event.target) || playerFor(event);
       if (!found) {
@@ -1588,14 +2066,19 @@
 
   let lastHref = "";
   let lastVideo = null;
+  let lastListing = false;
   function sync() {
     const video = currentVideoUrl(site, location.href, document);
-    if (location.href === lastHref && video === lastVideo) return;
+    const listing = checkListing();
+    if (location.href === lastHref && video === lastVideo && listing === lastListing) return;
+    // The site moved to another page without reloading: the picks were for the old one.
+    if (lastHref && location.href !== lastHref && state.bulk.selecting) stopSelecting(true);
     lastHref = location.href;
     lastVideo = video;
+    lastListing = listing;
     const onVideo = Boolean(video);
     state.pageUrl = video;
-    if (onVideo || state.jobs.length || state.open) {
+    if (onVideo || listing || state.jobs.length || state.open) {
       ensureWidget();
       renderDock();
       if (state.open && state.view === "pick" && onVideo && state.target && state.target.url !== state.pageUrl && !state.target.loading) render();

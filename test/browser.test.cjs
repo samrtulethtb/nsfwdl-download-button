@@ -143,6 +143,50 @@ async function inject(page, {gm = true, store} = {}) {
 
 const widget = (page, selector) => page.locator("#nsfwdl-download-widget").locator(selector);
 
+// Bulk select (2.7.0): a listing with six videos, and an API whose
+// /api/supporter/status sends the bulk limits. Jobs stay "preparing" until
+// gate.open; busyFirst refuses the first start as "server_busy".
+const BULK_LISTING = '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' +
+  [1, 2, 3, 4, 5, 6].map((n) => `<a id="t${n}" href="/view_video.php?viewkey=v${n}" title="Clip ${n}" style="display:inline-block;margin:8px"><img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="240" height="135" alt=""></a>`).join("") +
+  "</body></html>";
+
+function bulkApi({status, busyFirst} = {}) {
+  let next = 0;
+  const gate = {open: false};
+  const stats = {downloads: 0, busy: 0};
+  const handler = async (route, url, calls) => {
+    if (url.pathname === "/api/supporter/status") return json(route, status);
+    if (url.pathname === "/api/route") return json(route, {route: "/pornhub-downloader", source: "pornhub", mode: "validated"});
+    if (url.pathname === "/api/extract") return json(route, EXTRACT);
+    if (url.pathname === "/api/download") {
+      if (busyFirst && stats.busy === 0) {
+        stats.busy += 1;
+        return json(route, {error_kind: "server_busy", message: "NSFWDL is very busy with this site right now.", transient: true, retry_after_seconds: 1}, 503);
+      }
+      next += 1;
+      stats.downloads += 1;
+      const id = ("bulk" + next).padEnd(24, "x");
+      return json(route, {download_id: id, state: "queued", mode: "prepared_temp_artifact", download_url: `https://dl.nsfwdl.com/d/${id}`, expires_in: 3600});
+    }
+    const polled = url.pathname.match(/^\/api\/download\/([^/]+)\/status$/);
+    if (polled) {
+      const id = polled[1];
+      if (!gate.open) return json(route, {download_id: id, state: "preparing", bytes_prepared: 1_000_000, handoff: "waiting"});
+      const fetched = calls.some((c) => c === `/d/${id}`);
+      return json(route, {download_id: id, state: "ready", bytes_prepared: 2_000_000, handoff: fetched ? "delivered" : "waiting"});
+    }
+    if (url.pathname.startsWith("/d/")) return route.fulfill({status: 200, headers: {"Content-Type": "video/mp4", "Content-Disposition": 'attachment; filename="v.mp4"'}, body: "x"});
+    return route.fulfill({status: 404, body: ""});
+  };
+  return {handler, gate, stats};
+}
+
+const bulkHeading = (page) => page.evaluate(() => {
+  const node = document.querySelector("#nsfwdl-download-widget").shadowRoot.querySelector(".bulk h4");
+  return node ? node.textContent : "";
+});
+const SUPPORTER_STORE = {supporter: {token: "tok".padEnd(30, "x"), expiresAt: 4102444800}};
+
 async function main() {
   const browser = await chromium.launch({executablePath: process.env.CHROME_BIN || undefined, headless: true});
   try {
@@ -618,6 +662,108 @@ async function main() {
       await page.evaluate(() => history.pushState({}, "", "/"));
       await page.waitForFunction(() => !document.querySelector("#nsfwdl-download-widget"), null, {timeout: 8000})
         .then(() => check("the chain kept running after the throw", true), () => check("the chain kept running after the throw", false));
+      await context.close();
+    }
+
+    // 15. Bulk select, Supporter: marks thumbnails, skips one saved before,
+    // runs three at a time with the bulk marker, saves all five.
+    {
+      const {handler, gate, stats} = bulkApi({status: {tier: "supporter", expires_at: 4102444800, bulk: {parallel: 3, max_items: 100, start_gap_ms: 300}, downloads_left_today: 300}});
+      const {context, page, calls, bodies, errors} = await setup(browser, {api: handler, pageHtml: BULK_LISTING});
+      const downloads = [];
+      page.on("download", (download) => downloads.push(download));
+      await page.goto("https://www.pornhub.com/video?o=mr");
+      await inject(page, {store: Object.assign({history: {"pornhub:v3": 20000}}, SUPPORTER_STORE)});
+      await widget(page, ".dock").waitFor({timeout: 5000});
+      check("bulk: a listing page gets the Select videos button", (await widget(page, ".dock .btn-primary").textContent()).includes("Select videos"));
+      check("bulk: nothing is requested before selecting", calls.length === 0, calls);
+      await widget(page, ".dock .btn-primary").click();
+      await widget(page, "text=Select all on this page").waitFor({timeout: 5000});
+      const marks = await page.evaluate(() => Array.from(document.querySelectorAll("[data-nsfwdl-pick]")).map((node) => node.getAttribute("data-nsfwdl-pick")).sort());
+      check("bulk: thumbnails are marked, the one saved before is skipped", JSON.stringify(marks) === JSON.stringify(["0", "0", "0", "0", "0", "skip"]), marks);
+      await page.click("#t1 img");
+      check("bulk: clicking a thumbnail picks it instead of opening it", page.url().endsWith("/video?o=mr") && (await page.getAttribute("#t1 img", "data-nsfwdl-pick")) === "1");
+      await page.click("#t3 img");
+      check("bulk: a video saved before can't be picked", (await page.getAttribute("#t3 img", "data-nsfwdl-pick")) === "skip");
+      await widget(page, "text=Select all on this page").click();
+      check("bulk: select all picks every video not saved before", (await widget(page, ".count").textContent()).startsWith("5 selected"));
+      check("bulk: Supporter sees no Free note", await widget(page, "a[href*='from=userscript-bulk']").count() === 0);
+      await widget(page, "text=Download 5 videos").click();
+      await page.waitForTimeout(2500);
+      check("bulk: three run at a time", stats.downloads === 3, stats);
+      check("bulk: every request carries the bulk marker", bodies.length > 0 && bodies.every((body) => body.page_path === "/userscript/bulk"), bodies);
+      check("bulk: the page marks go once the batch starts", await page.locator("[data-nsfwdl-pick]").count() === 0);
+      check("bulk: the dock counts the batch", /\d\/5/.test(await widget(page, ".dock .btn-primary").textContent()));
+      gate.open = true;
+      await page.waitForFunction(() => {
+        const node = document.querySelector("#nsfwdl-download-widget").shadowRoot.querySelector(".bulk h4");
+        return node && /5 of 5/.test(node.textContent);
+      }, null, {timeout: 40000}).then(() => check("bulk: all five end saved", true), () => check("bulk: all five end saved", false));
+      check("bulk: five files reach the browser", downloads.length === 5, downloads.length);
+      check("bulk: no page errors", errors.length === 0, errors);
+      await context.close();
+    }
+
+    // 16. Bulk select, Free: one at a time, cut to the downloads left today,
+    // with a quiet Supporter note.
+    {
+      const {handler, gate, stats} = bulkApi({status: {tier: "free", bulk: {parallel: 1, max_items: 5, start_gap_ms: 300}, downloads_left_today: 3}});
+      const {context, page, errors} = await setup(browser, {api: handler, pageHtml: BULK_LISTING});
+      await page.goto("https://www.pornhub.com/video?o=mr");
+      await inject(page);
+      await widget(page, ".dock .btn-primary").click();
+      await widget(page, "text=Select all on this page (6)").click();
+      check("bulk Free: the batch is cut to the downloads left today", await widget(page, "text=Download 3 videos").count() === 1);
+      check("bulk Free: it says why", (await widget(page, ".body").textContent()).includes("left of today's downloads"));
+      check("bulk Free: Supporter note links with its own source", await widget(page, "a[href*='from=userscript-bulk']").count() === 1);
+      await widget(page, "text=Download 3 videos").click();
+      await page.waitForTimeout(2000);
+      check("bulk Free: one at a time", stats.downloads === 1, stats);
+      gate.open = true;
+      await page.waitForFunction(() => {
+        const node = document.querySelector("#nsfwdl-download-widget").shadowRoot.querySelector(".bulk h4");
+        return node && /3 of 3/.test(node.textContent);
+      }, null, {timeout: 40000}).then(() => check("bulk Free: all three end saved", true), () => check("bulk Free: all three end saved", false));
+      check("bulk Free: no page errors", errors.length === 0, errors);
+      await context.close();
+    }
+
+    // 17. Kill switch: parallel 0 from NSFWDL turns bulk off.
+    {
+      const {handler, stats} = bulkApi({status: {tier: "free", bulk: {parallel: 0, max_items: 5, start_gap_ms: 300}, downloads_left_today: 30}});
+      const {context, page, errors} = await setup(browser, {api: handler, pageHtml: BULK_LISTING});
+      await page.goto("https://www.pornhub.com/video?o=mr");
+      await inject(page);
+      await widget(page, ".dock .btn-primary").click();
+      await widget(page, "text=switched off").waitFor({timeout: 5000}).then(() => check("bulk off: the panel says so", true), () => check("bulk off: the panel says so", false));
+      check("bulk off: no download button", await widget(page, "text=/Download \\d+ video/").count() === 0);
+      check("bulk off: nothing started", stats.downloads === 0, stats);
+      await widget(page, "button[aria-label='Close']").click();
+      check("bulk off: closing the panel clears the page marks", await page.locator("[data-nsfwdl-pick]").count() === 0);
+      check("bulk off: no page errors", errors.length === 0, errors);
+      await context.close();
+    }
+
+    // 18. A busy site makes a bulk video wait, not fail.
+    {
+      const {handler, gate, stats} = bulkApi({busyFirst: true, status: {tier: "supporter", expires_at: 4102444800, bulk: {parallel: 3, max_items: 100, start_gap_ms: 300}, downloads_left_today: 300}});
+      gate.open = true;
+      const {context, page, errors} = await setup(browser, {api: handler, pageHtml: BULK_LISTING});
+      await page.goto("https://www.pornhub.com/video?o=mr");
+      await inject(page, {store: SUPPORTER_STORE});
+      await widget(page, ".dock .btn-primary").click();
+      await widget(page, "text=Select all on this page").waitFor({timeout: 5000});
+      for (const id of ["#t2", "#t4", "#t5"]) await page.click(id + " img");
+      await widget(page, "text=Download 3 videos").click();
+      await page.waitForTimeout(2500);
+      check("bulk busy: the video waits instead of failing", /busy/i.test(await widget(page, ".bulk").textContent()) && !/failed/.test(await bulkHeading(page) + await widget(page, ".bulk .line").first().textContent()), await widget(page, ".bulk").textContent());
+      check("bulk busy: the rest of the batch waits too (no burst of requests)", stats.busy === 1 && stats.downloads === 0, stats);
+      await page.waitForFunction(() => {
+        const node = document.querySelector("#nsfwdl-download-widget").shadowRoot.querySelector(".bulk h4");
+        return node && /3 of 3/.test(node.textContent);
+      }, null, {timeout: 50000}).then(() => check("bulk busy: they are saved once the site has room", true), () => check("bulk busy: they are saved once the site has room", false));
+      check("bulk busy: each started once after the refusal", stats.busy === 1 && stats.downloads === 3, stats);
+      check("bulk busy: no page errors", errors.length === 0, errors);
       await context.close();
     }
   } finally {

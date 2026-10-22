@@ -38,6 +38,13 @@ file goes straight to your browser's downloads. Powered by
 - **Several downloads at once**, each with its own progress row. Start as
   many as you like: three run at a time (four with Supporter) and the rest wait their turn in the
   panel, then start on their own.
+- **Select videos (bulk download, desktop).** On a listing, search or
+  profile page, press ☑ Select videos, click the thumbnails you want (or
+  Select all on this page) and download them in one go, in the quality you
+  choose. Videos you saved before are skipped. Free: 5 per batch, one at a
+  time; Supporter: up to 100 per batch, 3 at a time. When a site is busy on
+  NSFWDL the batch slows down by itself, so single downloads always go first.
+  Your browser may ask once to allow several downloads from the site.
 - **Already downloaded?** Videos you saved get a green outline on their
   thumbnails, "✓ Downloaded" on the button, and "✓ Again" on the hover
   button. The list stays in your userscript manager; turn it off or clear it

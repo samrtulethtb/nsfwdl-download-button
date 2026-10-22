@@ -15,6 +15,10 @@ copying links, no pop-ups — on desktop and on phones.
 
 **🆕 What's new**
 
+- **2.7** — **Select videos**: on a listing, search or profile page, pick
+  thumbnails (or *Select all*) and download them in one go. It skips the ones
+  you already have. Free: 5 per batch; Supporter: up to 100, 3 at a time
+  (desktop).
 - **2.6.4** — the daily limit now counts **per browser, not per IP address**.
   If you share a VPN or a mobile network with other people, they no longer
   use up your free downloads.
