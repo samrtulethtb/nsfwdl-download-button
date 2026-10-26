@@ -40,7 +40,7 @@
 // @name:mr      NSFWDL – मोफत व्हिडिओ डाउनलोडर: PornHub, xHamster, XVideos, XNXX एका क्लिकमध्ये HD MP4 मध्ये
 // @name:ne      NSFWDL – निःशुल्क भिडियो डाउनलोडर: PornHub, xHamster, XVideos, XNXX एक क्लिकमा HD MP4 मा
 // @namespace    https://nsfwdl.com/
-// @version      2.7.0
+// @version      2.7.1
 // @description  Free, no sign-up. Download videos without leaving the page: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang, YouPorn, RedTube, Erome, ThisVid, TXXX and 8 more sites. Pick a real quality with its file size and the MP4 goes straight to your downloads. Download buttons on the player and on thumbnails, one-click saving in your preferred quality. Desktop, Android and iPhone. No pop-ups, no redirects.
 // @description:ro  Gratuit, fără cont. Descarcă video fără să părăsești pagina: PornHub (inclusiv Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang, YouPorn, RedTube, Erome, ThisVid, TXXX și încă 8 site-uri. Alegi o calitate reală cu mărimea fișierului, iar MP4-ul ajunge direct în descărcări. Butoane de descărcare pe player și pe miniaturi, salvare dintr-un click în calitatea preferată. Desktop, Android și iPhone. Fără pop-up-uri, fără redirecționări.
 // @description:es  Gratis, sin registro. Descarga vídeos sin salir de la página: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang, YouPorn, RedTube, Erome, ThisVid, TXXX y 8 sitios más. Elige una calidad real con su tamaño y el MP4 llega directo a tus descargas. Botones de descarga en el reproductor y en las miniaturas, guardado en un clic con tu calidad preferida. Escritorio, Android y iPhone. Sin pop-ups ni redirecciones.
@@ -173,11 +173,14 @@
 //   downloads made from this script ("/userscript/bulk" for videos queued
 //   with Select videos). Like any visit, they reach NSFWDL from
 //   your IP address.
-// - Supporter key (optional, Settings): userscript managers don't send your
-//   nsfwdl.com cookies, so the key you enter is exchanged once on nsfwdl.com
-//   for a session token. The script keeps the token in your userscript
-//   manager and sends it only to nsfwdl.com, in an X-NSFWDL-Supporter
-//   header. "Remove" ends that session; the key itself is never stored.
+// - Supporter key (optional, Settings): many userscript managers don't send
+//   your nsfwdl.com cookies, so the key you enter is exchanged once on
+//   nsfwdl.com for a session token. The script keeps the token in your
+//   userscript manager and sends it only to nsfwdl.com, in an
+//   X-NSFWDL-Supporter header. "Remove" ends that session; the key itself
+//   is never stored. If your manager does send the cookies and you activated
+//   a key on nsfwdl.com in this browser, the script asks nsfwdl.com for its
+//   own session instead, so you don't type the key twice.
 // - Free downloads per day count per browser, not per IP address, so people
 //   sharing a VPN or mobile-network address don't use up each other's. For
 //   that the script makes one random value, keeps it in your userscript
@@ -626,6 +629,10 @@
   // drops it here too.
   let supporter = readSupporter();
   let supporterChecked = false;
+  // 2.7.1: a key activated on nsfwdl.com in this browser (see linkFromSite).
+  let siteLink = null;      // the request in flight
+  let siteLinkAt = 0;       // when it was last asked
+  const SITE_LINK_EVERY_MS = 20000;
 
   function readSupporter() {
     const stored = readValue("supporter", null);
@@ -653,7 +660,8 @@
     const stored = readSupporter();
     if (!stored || !supporter || stored.token !== supporter.token) supporterChecked = false;
     supporter = stored;
-    if (supporterChecked || !supporterToken()) return;
+    if (!supporterToken()) { linkFromSite(); return; }
+    if (supporterChecked) return;
     supporterChecked = true;
     try {
       const status = await api("GET", "/api/supporter/status", null, 15000);
@@ -668,6 +676,32 @@
     }
   }
 
+  // With no session of its own, asks nsfwdl.com (at most every 20 s, and
+  // again when the tab comes back into view) whether this browser has a key
+  // active on the site. That works only when the manager sends the site's
+  // cookie; nsfwdl.com then gives the script its own session for that key.
+  // Off after "Remove from this browser" until a key is entered here again.
+  function linkFromSite() {
+    if (supporterToken() || readValue("siteLink", true) === false) return Promise.resolve(false);
+    if (siteLink) return siteLink;
+    if (Date.now() - siteLinkAt < SITE_LINK_EVERY_MS) return Promise.resolve(false);
+    siteLinkAt = Date.now();
+    siteLink = api("POST", "/api/supporter/link", {client: "userscript"}, 8000).then((data) => {
+      if (supporterToken() || data.tier !== "supporter" || typeof data.session_token !== "string" || !data.session_token) return false;
+      supporter = {token: data.session_token, expiresAt: Number(data.expires_at) || 0};
+      supporterChecked = true;
+      writeValue("supporter", supporter);
+      return supporterActive();
+    }, () => false).finally(() => { siteLink = null; });
+    return siteLink;
+  }
+
+  // Lets a site check that is already on its way finish before the
+  // formats are locked or unlocked.
+  async function siteLinkSettled() {
+    if (siteLink) await siteLink;
+  }
+
   async function activateSupporter(key) {
     const data = await api("POST", "/api/supporter/activate", {key, client: "userscript"}, 20000);
     if (data.tier !== "supporter" || typeof data.session_token !== "string" || !data.session_token) {
@@ -676,11 +710,13 @@
     supporter = {token: data.session_token, expiresAt: Number(data.expires_at) || 0};
     supporterChecked = true;
     writeValue("supporter", supporter);
+    writeValue("siteLink", true);
   }
 
   async function removeSupporter() {
     try { await api("POST", "/api/supporter/logout", {}, 15000); } catch (_) { /* removed locally anyway */ }
     forgetSupporter();
+    writeValue("siteLink", false);
   }
 
   // ── Downloaded marks (local list, never sent anywhere) ─────────────────
@@ -1089,6 +1125,7 @@
       const payload = {url, mode: route.mode || "validated", device: deviceClass(), page_path: PAGE_PATH};
       if (route.source) payload.expected_source = route.source;
       const data = await api("POST", "/api/extract", payload, 60000);
+      await siteLinkSettled();
       if (token !== state.token) return;
       const choices = normalizeFormats(data, supporterActive());
       state.target = {url, info: data, choices, error: null, loading: false};
@@ -1234,7 +1271,7 @@
         el("small", {text: "✓ Supporter active until " + until + ". Files up to about 2 GB are unlocked."}),
         el("div", {class: "row"}, [el("button", {class: "btn btn-ghost", type: "button", text: "Remove from this browser", onclick: async () => {
           await removeSupporter();
-          state.supporterMessage = "Supporter session removed.";
+          state.supporterMessage = "Supporter session removed. A key active on nsfwdl.com isn't picked up again until you enter one here.";
           resetTargetLocks();
           render();
         }})]),
@@ -1267,7 +1304,7 @@
     return el("div", {class: "setting supporter"}, [
       el("span", {text: "Supporter key"}),
       form,
-      el("small", {}, ["Unlocks files over 500 MB. ", externalLink(NSFWDL + "/supporter?from=userscript", "Get a key"), ". The key is exchanged on nsfwdl.com for a session; only that session is kept here. A key works in up to 3 browsers or devices at once."]),
+      el("small", {}, ["Unlocks files over 500 MB. ", externalLink(NSFWDL + "/supporter?from=userscript", "Get a key"), ". The key is exchanged on nsfwdl.com for a session; only that session is kept here. A key works in up to 3 browsers or devices at once. Activated it on nsfwdl.com in this browser? Most managers let the script pick it up by itself."]),
       message,
     ]);
   }
@@ -1433,6 +1470,7 @@
     const payload = {url, mode: route.mode || "validated", device: deviceClass(), page_path: BULK_PAGE_PATH};
     if (route.source) payload.expected_source = route.source;
     const data = await api("POST", "/api/extract", payload, 60000);
+    await siteLinkSettled();
     const choice = pickPreferred(normalizeFormats(data, supporterActive()), state.bulk.preset);
     if (!choice) throw Object.assign(new Error("No downloadable format was found for this video."), {transient: false});
     const title = typeof data.title === "string" && data.title.trim() ? data.title.trim().slice(0, 200) : job.title;
@@ -1649,6 +1687,7 @@
     render();
     try {
       await checkSupporter();
+      await siteLinkSettled();
       b.config = bulkLimits(await api("GET", "/api/supporter/status", null, 15000));
       b.configAt = Date.now();
     } catch (error) {
@@ -2099,5 +2138,18 @@
   }
   scheduleSync();
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { try { sync(); } finally { scheduleSync(); } } });
+  // Back from nsfwdl.com (say, after buying a key there): unlock an open
+  // panel without a reload when the site now has a key for this browser.
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden || supporterToken()) return;
+    siteLinkAt = 0;
+    if (!state.open) return;
+    linkFromSite().then((linked) => {
+      if (!linked) return;
+      resetTargetLocks();
+      if (state.bulk.config) state.bulk.configAt = 0;
+      render();
+    });
+  });
   scheduleMarks();
 })();

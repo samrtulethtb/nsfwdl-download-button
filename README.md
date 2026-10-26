@@ -95,6 +95,8 @@ Downloads are free, up to 30 a day in each browser. More a day (300) and files o
 qualities with a 🔒 and never starts them for a free session. This is
 declared as `@antifeature payment`. Have a key? Enter it once in the panel's
 ⚙ Settings → Supporter key, and the large qualities unlock in the script.
+Activated it on nsfwdl.com in the same browser? With most managers the
+script picks it up by itself (since 2.7.1).
 
 ## Privacy and permissions
 
@@ -107,11 +109,16 @@ declared as `@antifeature payment`. Have a key? Enter it once in the panel's
   follows its status. The requests carry a fixed `/userscript` marker so
   NSFWDL can count downloads made from the script. Like any visit, they
   reach NSFWDL from your IP address.
-- Supporter key (optional): userscript managers don't send nsfwdl.com
+- Supporter key (optional): many userscript managers don't send nsfwdl.com
   cookies, so a key entered in Settings is exchanged once on nsfwdl.com for
   a session token. The script stores that token (never the key) in your
   userscript manager and sends it only to nsfwdl.com, in an
   `X-NSFWDL-Supporter` header. "Remove from this browser" ends the session.
+- If your manager does send nsfwdl.com cookies and you activated a key on nsfwdl.com in that browser, the script
+  asks nsfwdl.com for a session of its own (`POST /api/supporter/link`):
+  only while it has none, at most every 20 seconds when you open the panel
+  or come back to the tab. "Remove from this browser" also turns this off
+  until you enter a key in the script again.
 - Free downloads per day count per browser, not per IP address, so people
   sharing a VPN or mobile-network address don't use up each other's. For
   that the script makes one random value, keeps it in your userscript

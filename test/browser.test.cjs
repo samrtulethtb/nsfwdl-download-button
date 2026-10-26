@@ -206,7 +206,9 @@ async function main() {
       check("the 4K format is locked for a free session", await widget(page, ".card.locked").count() === 1);
       const title = await widget(page, ".title").textContent();
       check("the title is rendered as text", title.includes("<img src=x onerror=alert(1)>"), title);
-      check("API calls carry the /userscript marker", bodies.length >= 2 && bodies.every((b) => b.page_path === "/userscript"), bodies);
+      // The Supporter site check ({client: "userscript"}) starts no download, so it carries no marker.
+      const marked = bodies.filter((b) => b.client !== "userscript");
+      check("API calls carry the /userscript marker", marked.length >= 2 && marked.every((b) => b.page_path === "/userscript"), bodies);
       const downloadPromise = page.waitForEvent("download", {timeout: 15000});
       await widget(page, ".card", ).filter({hasText: "1080p"}).click();
       await widget(page, ".job").waitFor();
@@ -557,6 +559,58 @@ async function main() {
       await widget(kept.page, ".card").first().waitFor();
       check("a stored valid session unlocks the 4K format", await widget(kept.page, ".card.locked").count() === 0);
       await kept.context.close();
+
+      // 2.7.1: a key activated on nsfwdl.com in this browser (the manager
+      // sends the site cookie) is picked up without typing it again.
+      const LINKED = "linked-token-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+      let siteKey = false;
+      const linkSeen = [];
+      const linkApi = async (route, url, calls) => {
+        const header = route.request().headers()["x-nsfwdl-supporter"] || "";
+        linkSeen.push({path: url.pathname, header});
+        if (url.pathname === "/api/supporter/link") {
+          return json(route, siteKey && !header ? {tier: "supporter", expires_at: EXPIRES, session_token: LINKED} : {tier: "free"});
+        }
+        if (url.pathname === "/api/supporter/status" && header === LINKED) return json(route, {tier: "supporter", expires_at: EXPIRES});
+        if (url.pathname === "/api/supporter/logout") return json(route, {tier: "free", expires_at: null});
+        return api(route, url, calls);
+      };
+      const linked = await setup(browser, {api: linkApi});
+      await linked.page.goto("https://www.pornhub.com/view_video.php?viewkey=abc123");
+      await inject(linked.page);
+      await widget(linked.page, ".dock .btn-primary").click();
+      await widget(linked.page, ".card").first().waitFor();
+      check("site link: without a site key the 4K format stays locked", await widget(linked.page, ".card.locked").count() === 1);
+      check("site link: the script asked nsfwdl.com once", linkSeen.filter((c) => c.path === "/api/supporter/link").length === 1, linkSeen);
+      // The key is bought in another tab; the panel is still open when the visitor comes back.
+      siteKey = true;
+      await linked.page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+      await linked.page.waitForFunction(() => window.__gmStore.supporter && window.__gmStore.supporter.token, null, {timeout: 5000});
+      check("site link: coming back stores the script's own session", await linked.page.evaluate((t) => window.__gmStore.supporter.token === t, LINKED));
+      await linked.page.waitForTimeout(200);
+      check("site link: the open panel unlocks the 4K format", await widget(linked.page, ".card.locked").count() === 0);
+      await widget(linked.page, ".card", {hasText: "2160p"}).first().click();
+      await linked.page.waitForTimeout(400);
+      check("site link: the download carries the linked session", linkSeen.some((c) => c.path === "/api/download" && c.header === LINKED), linkSeen.filter((c) => c.path === "/api/download"));
+      await widget(linked.page, "text=⚙ Settings").click();
+      await widget(linked.page, "text=Remove from this browser").click();
+      await widget(linked.page, ".keyform input").waitFor({timeout: 5000});
+      check("site link: Remove turns it off", await linked.page.evaluate(() => window.__gmStore.siteLink === false && !window.__gmStore.supporter));
+      const before = linkSeen.filter((c) => c.path === "/api/supporter/link").length;
+      await linked.page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+      await linked.page.waitForTimeout(300);
+      check("site link: after Remove the script stops asking", linkSeen.filter((c) => c.path === "/api/supporter/link").length === before);
+      check("site link: no page errors", linked.errors.length === 0, linked.errors);
+      await linked.context.close();
+
+      // A site key that already exists unlocks on the first open.
+      const ready = await setup(browser, {api: linkApi});
+      await ready.page.goto("https://www.pornhub.com/view_video.php?viewkey=abc123");
+      await inject(ready.page);
+      await widget(ready.page, ".dock .btn-primary").click();
+      await widget(ready.page, ".card").first().waitFor();
+      check("site link: an existing site key unlocks on the first open", await widget(ready.page, ".card.locked").count() === 0);
+      await ready.context.close();
     }
 
     // 12. RedGifs feed: one URL while clips scroll by; the active clip decides.
