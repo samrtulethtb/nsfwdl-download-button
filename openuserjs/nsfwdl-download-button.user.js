@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         NSFWDL Free Video Downloader – PornHub, xHamster, XVideos, XNXX to HD MP4 in one click, no pop-ups
+// @name         NSFWDL Video Downloader – PornHub, xHamster, XVideos, XNXX to MP4 in one click, no pop-ups
 // @name:ro      NSFWDL – descărcător video gratuit: PornHub, xHamster, XVideos, XNXX în MP4 HD dintr-un click
 // @name:es      NSFWDL – descargador de vídeos gratis: PornHub, xHamster, XVideos, XNXX a MP4 HD en un clic
 // @name:pt-BR   NSFWDL – baixador de vídeos grátis: PornHub, xHamster, XVideos, XNXX em MP4 HD com um clique
