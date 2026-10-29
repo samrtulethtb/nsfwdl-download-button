@@ -40,7 +40,7 @@
 // @name:mr      NSFWDL – मोफत व्हिडिओ डाउनलोडर: PornHub, xHamster, XVideos, XNXX एका क्लिकमध्ये HD MP4 मध्ये
 // @name:ne      NSFWDL – निःशुल्क भिडियो डाउनलोडर: PornHub, xHamster, XVideos, XNXX एक क्लिकमा HD MP4 मा
 // @namespace    https://nsfwdl.com/
-// @version      2.7.1
+// @version      2.7.2
 // @description  Free, no sign-up. Download videos without leaving the page: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang, YouPorn, RedTube, Erome, ThisVid, TXXX and 8 more sites. Pick a real quality with its file size and the MP4 goes straight to your downloads. Download buttons on the player and on thumbnails, one-click saving in your preferred quality. Desktop, Android and iPhone. No pop-ups, no redirects.
 // @description:ro  Gratuit, fără cont. Descarcă video fără să părăsești pagina: PornHub (inclusiv Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang, YouPorn, RedTube, Erome, ThisVid, TXXX și încă 8 site-uri. Alegi o calitate reală cu mărimea fișierului, iar MP4-ul ajunge direct în descărcări. Butoane de descărcare pe player și pe miniaturi, salvare dintr-un click în calitatea preferată. Desktop, Android și iPhone. Fără pop-up-uri, fără redirecționări.
 // @description:es  Gratis, sin registro. Descarga vídeos sin salir de la página: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang, YouPorn, RedTube, Erome, ThisVid, TXXX y 8 sitios más. Elige una calidad real con su tamaño y el MP4 llega directo a tus descargas. Botones de descarga en el reproductor y en las miniaturas, guardado en un clic con tu calidad preferida. Escritorio, Android y iPhone. Sin pop-ups ni redirecciones.
@@ -156,7 +156,7 @@
 // @grant        GM.notification
 // @connect      nsfwdl.com
 // @connect      dl.nsfwdl.com
-// @antifeature  membership Downloads are free, up to 30 a day. More a day and files over 500 MB need a paid NSFWDL Supporter key (entered in Settings); without one, large files are shown with a lock and never started.
+// @antifeature  membership Downloads are free, up to 30 a day. 1080p is free for the first 10 of them. More a day, more 1080p, qualities above 1440p and files over 500 MB need a paid NSFWDL Supporter key (entered in Settings); without one, those qualities are shown with a lock and never started.
 // @run-at       document-idle
 // @noframes
 // ==/UserScript==
@@ -406,6 +406,9 @@
         sizeBytes: size > 0 ? size : null,
         sizeExact: f.size_kind === "exact",
         locked: f.access === "supporter" && !supporterActive,
+        // Why the server locks it: file_size, quality (above 1440p) or
+        // hd_allowance (today's free 1080p downloads are used).
+        reason: typeof f.limit_reason === "string" ? f.limit_reason : "file_size",
         recommended: f.recommended === true,
         badge: qualityBadge(height),
       };
@@ -430,6 +433,18 @@
     const cap = Number(preference);
     if (!cap) return null;
     return free.find((c) => c.height && c.height <= cap) || free[free.length - 1];
+  }
+
+  // One sentence per lock reason present in the list, in a fixed order.
+  function lockReasons(choices) {
+    const reasons = new Set(choices.filter((c) => c.locked).map((c) => c.reason));
+    const text = {
+      hd_allowance: "You've used today's free 1080p downloads; 720p and lower stay free.",
+      quality: "Qualities above 1440p are for Supporters.",
+      file_size: "Files over 500 MB are for Supporters.",
+    };
+    const known = Object.keys(text).filter((reason) => reasons.has(reason)).map((reason) => text[reason]);
+    return (known.length ? known : [text.file_size]).join(" ");
   }
 
   // Only NSFWDL's own one-time file links are ever opened.
@@ -529,7 +544,7 @@
   }
 
   if (typeof module === "object" && module.exports) {
-    module.exports = {SITES, FEEDS, xhamsterShortsUrl, currentVideoUrl, siteFor, siteForUrl, mirrorSite, videoKey, isVideoPage, targetUrl, videoLinkTarget, normalizeFormats, pickPreferred, safeDownloadUrl, qualityBadge, jobView, formatDuration, slotRetrySeconds, SLOT_WAIT_MS, MAX_PARALLEL, FREE_PARALLEL, bulkLimits, planBatch, bulkMayStart, BULK_PAGE_PATH};
+    module.exports = {SITES, FEEDS, xhamsterShortsUrl, currentVideoUrl, siteFor, siteForUrl, mirrorSite, videoKey, isVideoPage, targetUrl, videoLinkTarget, normalizeFormats, pickPreferred, lockReasons, safeDownloadUrl, qualityBadge, jobView, formatDuration, slotRetrySeconds, SLOT_WAIT_MS, MAX_PARALLEL, FREE_PARALLEL, bulkLimits, planBatch, bulkMayStart, BULK_PAGE_PATH};
     return;
   }
 
@@ -1171,7 +1186,7 @@
     const section = el("div", {class: "section"}, [moved ? el("p", {class: "note", text: "You scrolled to another clip. These formats are for the one you opened."}) : null, moved, el("h4", {text: "Choose a quality · MP4"}), el("div", {class: "grid"}, choices.map(choiceCard))]);
     if (choices.some((c) => c.locked)) {
       section.append(el("p", {class: "note"}, [
-        "🔒 Files over 500 MB need a paid ", externalLink(NSFWDL + "/supporter?from=userscript", "Supporter key"), ". Everything else is free. Have a key? ",
+        "🔒 " + lockReasons(choices) + " A paid ", externalLink(NSFWDL + "/supporter?from=userscript", "Supporter key"), " (from $2) unlocks them. Have a key? ",
         el("button", {class: "linkbtn", type: "button", text: "Enter it in Settings", onclick: () => { state.view = "settings"; render(); }}),
       ]));
     }
@@ -1216,7 +1231,7 @@
     if (state.dailyLeft !== null && state.dailyLeft !== undefined && !supporterActive()) {
       section.append(el("p", {class: "note"}, [
         (state.dailyLeft === 1 ? "1 free download" : state.dailyLeft + " free downloads") + " left today. A ",
-        externalLink(NSFWDL + "/supporter?from=userscript", "Supporter key"), " (from $3, card or PayPal) raises it to 300 a day.",
+        externalLink(NSFWDL + "/supporter?from=userscript", "Supporter key"), " (from $2, card or PayPal) raises it to 300 a day.",
       ]));
     }
     const saved = Number(readValue("savedCount", 0)) || 0;
@@ -1268,7 +1283,7 @@
       const until = new Date(supporter.expiresAt * 1000).toLocaleString();
       return el("div", {class: "setting supporter"}, [
         el("span", {text: "Supporter key"}),
-        el("small", {text: "✓ Supporter active until " + until + ". Files up to about 2 GB are unlocked."}),
+        el("small", {text: "✓ Supporter active until " + until + ". 1080p without a daily limit, qualities above 1440p and files up to about 2 GB are unlocked."}),
         el("div", {class: "row"}, [el("button", {class: "btn btn-ghost", type: "button", text: "Remove from this browser", onclick: async () => {
           await removeSupporter();
           state.supporterMessage = "Supporter session removed. A key active on nsfwdl.com isn't picked up again until you enter one here.";
@@ -1289,7 +1304,7 @@
       message.textContent = "Activating…";
       try {
         await activateSupporter(key);
-        state.supporterMessage = "Supporter activated. Large files are now unlocked.";
+        state.supporterMessage = "Supporter activated. Every quality and large files are now unlocked.";
         resetTargetLocks();
       } catch (error) {
         state.supporterMessage = "";
@@ -1304,7 +1319,7 @@
     return el("div", {class: "setting supporter"}, [
       el("span", {text: "Supporter key"}),
       form,
-      el("small", {}, ["Unlocks files over 500 MB. ", externalLink(NSFWDL + "/supporter?from=userscript", "Get a key"), ". The key is exchanged on nsfwdl.com for a session; only that session is kept here. A key works in up to 3 browsers or devices at once. Activated it on nsfwdl.com in this browser? Most managers let the script pick it up by itself."]),
+      el("small", {}, ["Unlocks 1080p without a daily limit, qualities above 1440p and files over 500 MB. ", externalLink(NSFWDL + "/supporter?from=userscript", "Get a key"), ". The key is exchanged on nsfwdl.com for a session; only that session is kept here. A key works in up to 3 browsers or devices at once. Activated it on nsfwdl.com in this browser? Most managers let the script pick it up by itself."]),
       message,
     ]);
   }
@@ -1515,7 +1530,10 @@
           }
           job.busyWait = false;
         }
-        if (error.kind === "expired_format_ref" && !job.refRetried) {
+        // expired_format_ref: the format list is stale. free_hd_allowance_used:
+        // today's free 1080p ran out after this video's list was read, so a
+        // fresh list offers the best free quality (720p or lower) instead.
+        if ((error.kind === "expired_format_ref" || error.kind === "free_hd_allowance_used") && !job.refRetried) {
           job.refRetried = true;
           job.choice = null;
           if (requeue(job, 1)) return;
@@ -1890,7 +1908,7 @@
       if (!supporterActive()) {
         section.append(el("p", {class: "note"}, [
           "Free: " + cfg.maxItems + " videos per batch, one at a time. A ",
-          externalLink(NSFWDL + "/supporter?from=userscript-bulk", "Supporter key"), " (from $3) queues up to 100, 3 at a time, and 300 a day.",
+          externalLink(NSFWDL + "/supporter?from=userscript-bulk", "Supporter key"), " (from $2) queues up to 100, 3 at a time, and 300 a day.",
         ]));
       }
       section.append(el("div", {class: "row"}, [el("button", {

@@ -90,11 +90,13 @@ list: [supported sites](https://nsfwdl.com/supported-sites).
 
 ## Free and Supporter
 
-Downloads are free, up to 30 a day in each browser. More a day (300) and files over 500 MB need a paid
-[NSFWDL Supporter key](https://nsfwdl.com/supporter); the panel shows those
-qualities with a 🔒 and never starts them for a free session. This is
+Downloads are free, up to 30 a day in each browser. 720p and lower are always
+free, and 1080p is free for the first 10 downloads of the day. More a day (300),
+more 1080p, qualities above 1440p and files over 500 MB need a paid
+[NSFWDL Supporter key](https://nsfwdl.com/supporter) (passes from $2); the panel
+shows those qualities with a 🔒, says why, and never starts them for a free session. This is
 declared as `@antifeature payment`. Have a key? Enter it once in the panel's
-⚙ Settings → Supporter key, and the large qualities unlock in the script.
+⚙ Settings → Supporter key, and the locked qualities unlock in the script.
 Activated it on nsfwdl.com in the same browser? With most managers the
 script picks it up by itself (since 2.7.1).
 
