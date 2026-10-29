@@ -135,8 +135,8 @@ service running.
 - Enter a key once in ⚙ Settings → Supporter key and the large qualities
   unlock right in the panel. Only a session token is kept (never the key),
   and it goes only to nsfwdl.com.
-- **Quality is never locked:** a 1080p file under 500 MB downloads fine on
-  Free.
+- **Free quality:** 720p and lower are always free, 1080p is free for the
+  first 10 downloads of the day, and 4K needs Supporter.
 
 ## 🛠 Prefer to run downloads yourself?
 
