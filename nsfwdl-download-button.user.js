@@ -40,7 +40,7 @@
 // @name:mr      NSFWDL – मोफत व्हिडिओ डाउनलोडर: PornHub, xHamster, XVideos, XNXX एका क्लिकमध्ये HD MP4 मध्ये
 // @name:ne      NSFWDL – निःशुल्क भिडियो डाउनलोडर: PornHub, xHamster, XVideos, XNXX एक क्लिकमा HD MP4 मा
 // @namespace    https://nsfwdl.com/
-// @version      2.7.2
+// @version      2.8.0
 // @description  Free, no sign-up. Download videos without leaving the page: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang, YouPorn, RedTube, Erome, ThisVid, TXXX and 8 more sites. Pick a real quality with its file size and the MP4 goes straight to your downloads. Download buttons on the player and on thumbnails, one-click saving in your preferred quality. Desktop, Android and iPhone. No pop-ups, no redirects.
 // @description:ro  Gratuit, fără cont. Descarcă video fără să părăsești pagina: PornHub (inclusiv Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang, YouPorn, RedTube, Erome, ThisVid, TXXX și încă 8 site-uri. Alegi o calitate reală cu mărimea fișierului, iar MP4-ul ajunge direct în descărcări. Butoane de descărcare pe player și pe miniaturi, salvare dintr-un click în calitatea preferată. Desktop, Android și iPhone. Fără pop-up-uri, fără redirecționări.
 // @description:es  Gratis, sin registro. Descarga vídeos sin salir de la página: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang, YouPorn, RedTube, Erome, ThisVid, TXXX y 8 sitios más. Elige una calidad real con su tamaño y el MP4 llega directo a tus descargas. Botones de descarga en el reproductor y en las miniaturas, guardado en un clic con tu calidad preferida. Escritorio, Android y iPhone. Sin pop-ups ni redirecciones.
@@ -126,6 +126,7 @@
 // @match        *://*.spankbang.com/*
 // @match        *://*.nsfw.xxx/*
 // @match        *://*.thisvid.com/*
+// @match        *://*.nsfw247.to/*
 // @match        *://*.pornhub.com/*
 // @match        *://*.pornhub.org/*
 // @include      /^https?:\/\/(?:[a-z0-9-]+\.)*xhamster[0-9]{1,3}\.(?:com|desi)\//
@@ -257,6 +258,7 @@
     {id: "spankbang", name: "SpankBang", route: "/spankbang-downloader", hosts: ['spankbang.com'], hostPatterns: [], video: /^\/[a-z0-9]+\/video\//},
     {id: "nsfwxxx", name: "NSFW.xxx", route: "/nsfwxxx-downloader", hosts: ['nsfw.xxx'], hostPatterns: [], video: /^\/post\/\d+/},
     {id: "thisvid", name: "ThisVid", route: "/thisvid-downloader", hosts: ['thisvid.com'], hostPatterns: [], video: /^\/videos\//},
+    {id: "nsfw247", name: "NSFW247", route: "/nsfw247-downloader", hosts: ['nsfw247.to'], hostPatterns: [], video: /^\/(?=[^/?]*\d)[a-z0-9]+(?:-[a-z0-9]+)+\/?(?:\?.*)?$/i},
     {id: "pornhub", name: "PornHub", route: "/pornhub-downloader", hosts: ['pornhub.com', 'pornhub.org'], hostPatterns: [], video: /^\/(?:view_video\.php\?(?:.*&)?viewkey=|shorties\/[A-Za-z0-9]+)/},
   ];
 

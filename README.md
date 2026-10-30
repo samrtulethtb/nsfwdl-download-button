@@ -84,6 +84,7 @@ the script too.
 - [Rule34Video](https://nsfwdl.com/rule34video-downloader)
 - [NSFW.xxx](https://nsfwdl.com/nsfwxxx-downloader)
 - [ThisVid](https://nsfwdl.com/thisvid-downloader)
+- [NSFW247](https://nsfwdl.com/nsfw247-downloader)
 
 Any other link: the [universal downloader](https://nsfwdl.com/universal-nsfw-downloader). Full
 list: [supported sites](https://nsfwdl.com/supported-sites).

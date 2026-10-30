@@ -6,6 +6,8 @@ copying links, no pop-ups — on desktop and on phones.
 
 **🆕 What's new**
 
+- **2.8** — **NSFW247** (nsfw247.to): the Download button now works on its
+  video pages too.
 - **2.7** — **Select videos**: on a listing, search or profile page, pick
   thumbnails (or *Select all*) and download them in one go. It skips the ones
   you already have. Free: 5 per batch; Supporter: up to 100, 3 at a time
@@ -37,7 +39,8 @@ works without the script too.
   **[Erome](https://nsfwdl.com/erome-downloader)**
 - **[YouPorn](https://nsfwdl.com/youporn-downloader)** ·
   **[RedTube](https://nsfwdl.com/redtube-downloader)** ·
-  **[ThisVid](https://nsfwdl.com/thisvid-downloader)**
+  **[ThisVid](https://nsfwdl.com/thisvid-downloader)** ·
+  **[NSFW247](https://nsfwdl.com/nsfw247-downloader)**
 - **[YouJizz](https://nsfwdl.com/youjizz-downloader)** ·
   **[PornTop](https://nsfwdl.com/porntop-downloader)** ·
   **[TNAFlix](https://nsfwdl.com/tnaflix-downloader)** ·
