@@ -6,6 +6,9 @@ copying links, no pop-ups — on desktop and on phones.
 
 **🆕 What's new**
 
+- **2.9** — **PornHub clips and GIFs** (view_clip.php, /gif/): the Download
+  button now works on clip and GIF pages too, and saves just the clip or the
+  GIF's video.
 - **2.8** — **NSFW247** (nsfw247.to): the Download button now works on its
   video pages too.
 - **2.7** — **Select videos**: on a listing, search or profile page, pick

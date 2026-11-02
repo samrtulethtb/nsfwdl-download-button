@@ -63,7 +63,7 @@ file goes straight to your browser's downloads. Powered by
 Each link opens that site's downloader on nsfwdl.com, which works without
 the script too.
 
-- [PornHub](https://nsfwdl.com/pornhub-downloader) (videos and Shorties)
+- [PornHub](https://nsfwdl.com/pornhub-downloader) (videos, Shorties, clips and GIFs)
 - [xHamster](https://nsfwdl.com/xhamster-downloader) (videos and Shorts, and its mirror domains)
 - [XVideos](https://nsfwdl.com/xvideos-downloader)
 - [XNXX](https://nsfwdl.com/xnxx-downloader)
