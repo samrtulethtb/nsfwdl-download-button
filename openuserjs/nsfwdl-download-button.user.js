@@ -40,7 +40,7 @@
 // @name:mr      NSFWDL – मोफत व्हिडिओ डाउनलोडर: PornHub, xHamster, XVideos, XNXX एका क्लिकमध्ये HD MP4 मध्ये
 // @name:ne      NSFWDL – निःशुल्क भिडियो डाउनलोडर: PornHub, xHamster, XVideos, XNXX एक क्लिकमा HD MP4 मा
 // @namespace    https://nsfwdl.com/
-// @version      2.9.0
+// @version      2.10.0
 // @description  Free, no sign-up. Download videos without leaving the page: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang, YouPorn, RedTube, Erome, ThisVid, TXXX and 8 more sites. Pick a real quality with its file size and the MP4 goes straight to your downloads. Download buttons on the player and on thumbnails, one-click saving in your preferred quality. Desktop, Android and iPhone. No pop-ups, no redirects.
 // @description:ro  Gratuit, fără cont. Descarcă video fără să părăsești pagina: PornHub (inclusiv Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang, YouPorn, RedTube, Erome, ThisVid, TXXX și încă 8 site-uri. Alegi o calitate reală cu mărimea fișierului, iar MP4-ul ajunge direct în descărcări. Butoane de descărcare pe player și pe miniaturi, salvare dintr-un click în calitatea preferată. Desktop, Android și iPhone. Fără pop-up-uri, fără redirecționări.
 // @description:es  Gratis, sin registro. Descarga vídeos sin salir de la página: PornHub (incl. Shorties), xHamster, XVideos, XNXX, RedGifs, Eporner, SpankBang, YouPorn, RedTube, Erome, ThisVid, TXXX y 8 sitios más. Elige una calidad real con su tamaño y el MP4 llega directo a tus descargas. Botones de descarga en el reproductor y en las miniaturas, guardado en un clic con tu calidad preferida. Escritorio, Android y iPhone. Sin pop-ups ni redirecciones.
@@ -121,6 +121,7 @@
 // @match        *://*.voyeurhit.com/*
 // @match        *://*.voyeurhit.tube/*
 // @match        *://*.vxxx.com/*
+// @match        *://*.abxxx.com/*
 // @match        *://*.nuvid.com/*
 // @match        *://*.rule34video.com/*
 // @match        *://*.spankbang.com/*
@@ -252,7 +253,7 @@
     {id: "tnaflix", name: "TNAFlix", route: "/tnaflix-downloader", hosts: ['tnaflix.com'], hostPatterns: [], video: /\/video\d+/},
     {id: "porntrex", name: "Porntrex", route: "/porntrex-downloader", hosts: ['porntrex.com'], hostPatterns: [], video: /^\/video\/\d+/},
     {id: "noodlemagazine", name: "NoodleMagazine", route: "/noodlemagazine-downloader", hosts: ['noodlemagazine.com'], hostPatterns: [], video: /^\/watch\//},
-    {id: "txxx", name: "TXXX", route: "/txxx-downloader", hosts: ['txxx.com', 'txxx.tube', 'upornia.com', 'upornia.tube', 'vjav.com', 'vjav.tube', 'hclips.com', 'hdzog.com', 'hdzog.tube', 'hotmovs.com', 'hotmovs.tube', 'inporn.com', 'privatehomeclips.com', 'tubepornclassic.com', 'voyeurhit.com', 'voyeurhit.tube', 'vxxx.com'], hostPatterns: [], video: /^\/(?:videos\/\d+|video-\d+)/},
+    {id: "txxx", name: "TXXX", route: "/txxx-downloader", hosts: ['txxx.com', 'txxx.tube', 'upornia.com', 'upornia.tube', 'vjav.com', 'vjav.tube', 'hclips.com', 'hdzog.com', 'hdzog.tube', 'hotmovs.com', 'hotmovs.tube', 'inporn.com', 'privatehomeclips.com', 'tubepornclassic.com', 'voyeurhit.com', 'voyeurhit.tube', 'vxxx.com', 'abxxx.com'], hostPatterns: [], video: /^\/(?:videos?\/\d+|video-\d+)/},
     {id: "nuvid", name: "Nuvid", route: "/nuvid-downloader", hosts: ['nuvid.com'], hostPatterns: [], video: /^\/video\/\d+/},
     {id: "rule34video", name: "Rule34Video", route: "/rule34video-downloader", hosts: ['rule34video.com'], hostPatterns: [], video: /^\/video\/\d+/},
     {id: "spankbang", name: "SpankBang", route: "/spankbang-downloader", hosts: ['spankbang.com'], hostPatterns: [], video: /^\/[a-z0-9]+\/video\//},
