@@ -6,6 +6,8 @@ copying links, no pop-ups — on desktop and on phones.
 
 **🆕 What's new**
 
+- **2.10** — **AbXXX** (abxxx.com): the Download button now works on its
+  video pages too (part of the TXXX network).
 - **2.9** — **PornHub clips and GIFs** (view_clip.php, /gif/): the Download
   button now works on clip and GIF pages too, and saves just the clip or the
   GIF's video.
@@ -53,7 +55,7 @@ works without the script too.
   **[Rule34Video](https://nsfwdl.com/rule34video-downloader)** ·
   **[NSFW.xxx](https://nsfwdl.com/nsfwxxx-downloader)**
 - **[TXXX network](https://nsfwdl.com/txxx-downloader)** — TXXX, Upornia,
-  VJAV, HClips, HDZog, HotMovs, InPorn, VoyeurHit, VXXX and more
+  VJAV, HClips, HDZog, HotMovs, InPorn, VoyeurHit, VXXX, AbXXX and more
 
 Anything else: try the
 **[universal downloader](https://nsfwdl.com/universal-nsfw-downloader)**. It

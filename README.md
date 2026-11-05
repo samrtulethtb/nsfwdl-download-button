@@ -79,7 +79,7 @@ the script too.
 - [Porntrex](https://nsfwdl.com/porntrex-downloader)
 - [NoodleMagazine](https://nsfwdl.com/noodlemagazine-downloader)
 - [The TXXX network](https://nsfwdl.com/txxx-downloader) (TXXX, Upornia, VJAV, HClips, HDZog, HotMovs, InPorn,
-  VoyeurHit, VXXX and more)
+  VoyeurHit, VXXX, AbXXX and more)
 - [Nuvid](https://nsfwdl.com/nuvid-downloader)
 - [Rule34Video](https://nsfwdl.com/rule34video-downloader)
 - [NSFW.xxx](https://nsfwdl.com/nsfwxxx-downloader)
